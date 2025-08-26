@@ -47,6 +47,8 @@ function ExportToolbar({ runs }) {
     <div className="flex items-center gap-2">
       <Button variant="outline" size="sm" onClick={() => download('csv', false)}>CSV (Selected)</Button>
       <Button variant="outline" size="sm" onClick={() => download('csv', true)}>CSV (All)</Button>
+      <Button variant="outline" size="sm" onClick={() => download('xlsx', false)}>XLSX (Selected)</Button>
+      <Button variant="outline" size="sm" onClick={() => download('xlsx', true)}>XLSX (All)</Button>
       <Button variant="outline" size="sm" onClick={() => download('pdf', false)}>PDF (Selected)</Button>
       <Button variant="outline" size="sm" onClick={() => download('pdf', true)}>PDF (All)</Button>
     </div>
@@ -1861,24 +1863,83 @@ function App() {
 
 
                   <div className="space-y-2">
-                    <Label>Paste Batch Script (optional)</Label>
+                    <Label>Batch Script Input</Label>
+                    
+                    {/* File Upload Section */}
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.txt,.jsonl"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const content = event.target.result;
+                              const extension = file.name.split('.').pop().toLowerCase();
+                              
+                              if (extension === 'xlsx') {
+                                // For Excel files, convert to base64
+                                const base64 = btoa(String.fromCharCode(...new Uint8Array(content)));
+                                setBatchTestForm({ 
+                                  ...batchTestForm, 
+                                  batchScriptInput: base64,
+                                  batchScriptFormat: 'xlsx'
+                                });
+                              } else {
+                                // For text-based files
+                                const format = extension === 'jsonl' ? 'jsonl' : extension === 'csv' ? 'csv' : 'txt';
+                                setBatchTestForm({ 
+                                  ...batchTestForm, 
+                                  batchScriptInput: content,
+                                  batchScriptFormat: format
+                                });
+                              }
+                            };
+                            
+                            if (file.name.endsWith('.xlsx')) {
+                              reader.readAsArrayBuffer(file);
+                            } else {
+                              reader.readAsText(file);
+                            }
+                          }
+                        }}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <div className="text-sm text-gray-600">
+                          <strong>Click to upload</strong> CSV, XLSX, TXT, or JSONL file
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Supports batch processing with Result ID, Metric, and Input columns
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="text-center text-sm text-gray-500">
+                      — OR —
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
                       <div className="md:col-span-3">
+                        <Label>Paste Batch Script</Label>
                         <Textarea
                           placeholder={
                             batchTestForm.batchScriptFormat === 'jsonl'
                               ? '{"text":"Hello there"}\n{"text":"How can I help?"}'
                               : batchTestForm.batchScriptFormat === 'csv'
-                              ? 'text\nHello there\nHow can I help?\n'
+                              ? 'Result ID,Metric,Input\nTEST_001,WER,Hello there\nTEST_002,RTF,How can I help?'
                               : 'Hello there\nHow can I help?\n'
                           }
                           rows={4}
-                          value={batchTestForm.batchScriptInput}
+                          value={batchTestForm.batchScriptFormat === 'xlsx' ? 'Excel file uploaded' : batchTestForm.batchScriptInput}
                           onChange={(e) => setBatchTestForm({ ...batchTestForm, batchScriptInput: e.target.value })}
                           className="mt-1"
+                          disabled={batchTestForm.batchScriptFormat === 'xlsx'}
                         />
                         <div className="text-xs text-gray-500 mt-1">
-                          Supports JSONL, CSV, or TXT. Recognized keys for JSONL/CSV: <code>text</code>, <code>prompt</code>, or <code>sentence</code>.
+                          Supports JSONL, CSV, XLSX, or TXT. For CSV/XLSX: use columns <code>Result ID</code>, <code>Metric</code>, <code>Input</code>.
                         </div>
                       </div>
                       <div>
@@ -1889,6 +1950,7 @@ function App() {
                             <SelectItem value="txt">TXT (one line per item)</SelectItem>
                             <SelectItem value="jsonl">JSONL</SelectItem>
                             <SelectItem value="csv">CSV</SelectItem>
+                            <SelectItem value="xlsx">XLSX (Excel)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

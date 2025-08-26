@@ -2,6 +2,7 @@ import io
 import json
 import time
 from typing import Any, Dict, List, Optional
+import pandas as pd
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -94,13 +95,15 @@ async def export_results(payload: Dict[str, Any]):
             elif "tts_latency" in metrics_map:
                 service = "TTS"
             row_data = {
+                "result_id": row.get("result_id"),
+                "metric_type": row.get("metric_type"),
+                "text_input": row.get("text_input"),
                 "run_id": row.get("run_id"),
                 "run_item_id": row.get("id"),
                 "started_at": row.get("started_at"),
                 "mode": row.get("mode"),
                 "vendor": row.get("vendor"),
                 "service": service,
-                "text_input": row.get("text_input"),
                 "transcript": row.get("transcript"),
                 "wer": metrics_map.get("wer"),
                 "e2e_latency": metrics_map.get("e2e_latency"),
@@ -117,13 +120,15 @@ async def export_results(payload: Dict[str, Any]):
         if fmt == "csv":
             output = io.StringIO()
             base_fieldnames = [
+                "result_id",
+                "metric_type", 
+                "text_input",
                 "run_id",
                 "run_item_id",
                 "started_at",
                 "mode",
                 "vendor",
                 "service",
-                "text_input",
                 "transcript",
                 "wer",
                 "e2e_latency",
@@ -151,6 +156,30 @@ async def export_results(payload: Dict[str, Any]):
             csv_bytes = output.getvalue().encode("utf-8")
             headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.perf_counter())}.csv"}
             return Response(content=csv_bytes, media_type="text/csv", headers=headers)
+        elif fmt == "xlsx":
+            # Create Excel file using pandas
+            df = pd.DataFrame(norm)
+            
+            # Reorder columns to match our desired structure
+            subjective_fieldnames = set()
+            for row in norm:
+                for key in row.keys():
+                    if key.startswith("subj_"):
+                        subjective_fieldnames.add(key)
+            subjective_fieldnames_list = sorted(list(subjective_fieldnames))
+            fieldnames = base_fieldnames + subjective_fieldnames_list
+            
+            # Reorder DataFrame columns
+            df = df.reindex(columns=fieldnames)
+            
+            # Create Excel file in memory
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Benchmark Results', index=False)
+            
+            excel_bytes = excel_buffer.getvalue()
+            headers = {"Content-Disposition": f"attachment; filename=benchmark_export_{int(time.perf_counter())}.xlsx"}
+            return Response(content=excel_bytes, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
         elif fmt == "pdf":
             try:
                 from reportlab.lib.pagesizes import letter  # type: ignore

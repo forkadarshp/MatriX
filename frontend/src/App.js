@@ -47,6 +47,8 @@ function ExportToolbar({ runs }) {
     <div className="flex items-center gap-2">
       <Button variant="outline" size="sm" onClick={() => download('csv', false)}>CSV (Selected)</Button>
       <Button variant="outline" size="sm" onClick={() => download('csv', true)}>CSV (All)</Button>
+      <Button variant="outline" size="sm" onClick={() => download('xlsx', false)}>XLSX (Selected)</Button>
+      <Button variant="outline" size="sm" onClick={() => download('xlsx', true)}>XLSX (All)</Button>
       <Button variant="outline" size="sm" onClick={() => download('pdf', false)}>PDF (Selected)</Button>
       <Button variant="outline" size="sm" onClick={() => download('pdf', true)}>PDF (All)</Button>
     </div>
@@ -76,22 +78,23 @@ function App() {
     service: 'tts',
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
-      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' },
+      deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
+      aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
   
   const [batchTestForm, setBatchTestForm] = useState({
-    vendors: ['elevenlabs', 'deepgram'],
+    vendors: ['elevenlabs', 'deepgram', 'aws'],
     mode: 'isolated',
     service: 'tts',
-    scriptIds: [],
     batchScriptInput: '',
     batchScriptFormat: 'txt',
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
-      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' },
+      deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
+      aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
@@ -206,10 +209,9 @@ function App() {
   };
 
   const handleBatchTest = async () => {
-    const hasScriptIds = batchTestForm.scriptIds.length > 0;
-    const hasPastedBatch = !!(batchTestForm.batchScriptInput && batchTestForm.batchScriptInput.trim());
-    if (!hasScriptIds && !hasPastedBatch) {
-      setError('Add at least one input: select scripts or paste batch script content');
+    const hasPastedBatch = !!(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim());
+    if (!hasPastedBatch) {
+      setError('Please paste batch script content');
       return;
     }
 
@@ -218,19 +220,18 @@ function App() {
 
     try {
       const runData = {
-        mode: batchTestForm.mode,
-        vendors: batchTestForm.vendors,
-        script_ids: batchTestForm.scriptIds,
+        mode: batchTestForm?.mode,
+        vendors: batchTestForm?.vendors || [],
         config: {
-          service: batchTestForm.mode === 'isolated' ? batchTestForm.service : undefined,
-          models: batchTestForm.models,
-          chain: batchTestForm.chain
+          service: batchTestForm?.mode === 'isolated' ? batchTestForm?.service : undefined,
+          models: batchTestForm?.models || {},
+          chain: batchTestForm?.chain || {}
         }
       };
 
       if (hasPastedBatch) {
-        runData.batch_script_input = batchTestForm.batchScriptInput;
-        runData.batch_script_format = batchTestForm.batchScriptFormat || 'txt';
+        runData.batch_script_input = batchTestForm?.batchScriptInput;
+        runData.batch_script_format = batchTestForm?.batchScriptFormat || 'txt';
       }
 
       const response = await fetch(`${API_BASE_URL}/api/runs`, {
@@ -1432,7 +1433,7 @@ function App() {
                               <Select value={quickTestForm.models.deepgram.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, tts_model: v}}})}>
                                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                                  <SelectItem value="aura-2-helena-en">aura-2-helena-en</SelectItem>
                                 </SelectContent>
                               </Select>
                             </>
@@ -1444,6 +1445,43 @@ function App() {
                                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="nova-3">nova-3</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {quickTestForm.vendors.includes('aws') && (
+                        <div className="space-y-2">
+                          {quickTestForm.service === 'tts' && (
+                            <>
+                              <Label>AWS TTS Model</Label>
+                              <Select value={quickTestForm.models.aws.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, aws: {...quickTestForm.models.aws, tts_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="polly">polly</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Label className="mt-2">Voice</Label>
+                              <Select value={quickTestForm.models.aws.voice_id} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, aws: {...quickTestForm.models.aws, voice_id: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Joanna">Joanna</SelectItem>
+                                  <SelectItem value="Matthew">Matthew</SelectItem>
+                                  <SelectItem value="Amy">Amy</SelectItem>
+                                  <SelectItem value="Brian">Brian</SelectItem>
+                                  <SelectItem value="Emma">Emma</SelectItem>
+                                  <SelectItem value="Russell">Russell</SelectItem>
+                                  <SelectItem value="Nicole">Nicole</SelectItem>
+                                  <SelectItem value="Raveena">Raveena</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Label className="mt-2">Engine</Label>
+                              <Select value={quickTestForm.models.aws.engine} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, aws: {...quickTestForm.models.aws, engine: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="neural">neural</SelectItem>
+                                  <SelectItem value="standard">standard</SelectItem>
                                 </SelectContent>
                               </Select>
                             </>
@@ -1502,6 +1540,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                            <SelectItem value="aws">AWS (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1600,7 +1639,7 @@ function App() {
                       {/* Vendor-level config UI - Isolated only */}
                       {batchTestForm.mode === 'isolated' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {batchTestForm.vendors.includes('elevenlabs') && (
+                          {batchTestForm?.vendors?.includes('elevenlabs') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
@@ -1627,7 +1666,7 @@ function App() {
                               )}
                             </div>
                           )}
-                          {batchTestForm.vendors.includes('deepgram') && (
+                          {batchTestForm?.vendors?.includes('deepgram') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
@@ -1635,7 +1674,7 @@ function App() {
                                   <Select value={batchTestForm.models.deepgram.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, tts_model: v}}})}>
                                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                                      <SelectItem value="aura-2-helena-en">aura-2-helena-en</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </>
@@ -1653,7 +1692,44 @@ function App() {
                               )}
                             </div>
                           )}
-                          {batchTestForm.vendors.includes('azure_openai') && (
+                          {batchTestForm?.vendors?.includes('aws') && (
+                            <div className="space-y-2">
+                              {batchTestForm.service === 'tts' && (
+                                <>
+                                  <Label>AWS TTS Model</Label>
+                                  <Select value={batchTestForm.models.aws.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, aws: {...batchTestForm.models.aws, tts_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="polly">polly</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Label className="mt-2">Voice</Label>
+                                  <Select value={batchTestForm.models.aws.voice_id} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, aws: {...batchTestForm.models.aws, voice_id: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Joanna">Joanna</SelectItem>
+                                      <SelectItem value="Matthew">Matthew</SelectItem>
+                                      <SelectItem value="Amy">Amy</SelectItem>
+                                      <SelectItem value="Brian">Brian</SelectItem>
+                                      <SelectItem value="Emma">Emma</SelectItem>
+                                      <SelectItem value="Russell">Russell</SelectItem>
+                                      <SelectItem value="Nicole">Nicole</SelectItem>
+                                      <SelectItem value="Raveena">Raveena</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Label className="mt-2">Engine</Label>
+                                  <Select value={batchTestForm.models.aws.engine} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, aws: {...batchTestForm.models.aws, engine: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="neural">neural</SelectItem>
+                                      <SelectItem value="standard">standard</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {batchTestForm?.vendors?.includes('azure_openai') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
@@ -1733,6 +1809,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                            <SelectItem value="aws">AWS (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1760,17 +1837,17 @@ function App() {
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
-                              checked={batchTestForm.vendors.includes(vendor)}
+                              checked={batchTestForm?.vendors?.includes(vendor)}
                               onChange={(e) => {
                                 if (e.target.checked) {
                                   setBatchTestForm({
                                     ...batchTestForm,
-                                    vendors: [...batchTestForm.vendors, vendor]
+                                    vendors: [...(batchTestForm.vendors || []), vendor]
                                   });
                                 } else {
                                   setBatchTestForm({
                                     ...batchTestForm,
-                                    vendors: batchTestForm.vendors.filter(v => v !== vendor)
+                                    vendors: (batchTestForm.vendors || []).filter(v => v !== vendor)
                                   });
                                 }
                               }}
@@ -1783,69 +1860,86 @@ function App() {
                     </div>
                   )}
 
-                  <div>
-                    <Label>Test Scripts</Label>
-                    <div className="mt-2 space-y-3">
-                      {scripts.map((script) => (
-                        <div key={script.id} className="border rounded-lg p-3">
-                          <label className="flex items-start space-x-3">
-                            <input
-                              type="checkbox"
-                              checked={batchTestForm.scriptIds.includes(script.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setBatchTestForm({
-                                    ...batchTestForm,
-                                    scriptIds: [...batchTestForm.scriptIds, script.id]
-                                  });
-                                } else {
-                                  setBatchTestForm({
-                                    ...batchTestForm,
-                                    scriptIds: batchTestForm.scriptIds.filter(id => id !== script.id)
-                                  });
-                                }
-                              }}
-                              className="mt-1 rounded border-gray-300"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium">{script.name}</div>
-                              <div className="text-sm text-gray-500 mt-1">{script.description}</div>
-                              <div className="flex items-center space-x-2 mt-2">
-                                <Badge variant="secondary" className="text-xs">
-                                  {script.item_count} items
-                                </Badge>
-                                {script.tags && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {script.tags}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+
 
                   <div className="space-y-2">
-                    <Label>Paste Batch Script (optional)</Label>
+                    <Label>Batch Script Input</Label>
+                    
+                    {/* File Upload Section */}
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.txt,.jsonl"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const content = event.target.result;
+                              const extension = file.name.split('.').pop().toLowerCase();
+                              
+                              if (extension === 'xlsx') {
+                                // For Excel files, convert to base64
+                                const base64 = btoa(String.fromCharCode(...new Uint8Array(content)));
+                                setBatchTestForm({ 
+                                  ...batchTestForm, 
+                                  batchScriptInput: base64,
+                                  batchScriptFormat: 'xlsx'
+                                });
+                              } else {
+                                // For text-based files
+                                const format = extension === 'jsonl' ? 'jsonl' : extension === 'csv' ? 'csv' : 'txt';
+                                setBatchTestForm({ 
+                                  ...batchTestForm, 
+                                  batchScriptInput: content,
+                                  batchScriptFormat: format
+                                });
+                              }
+                            };
+                            
+                            if (file.name.endsWith('.xlsx')) {
+                              reader.readAsArrayBuffer(file);
+                            } else {
+                              reader.readAsText(file);
+                            }
+                          }
+                        }}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label htmlFor="file-upload" className="cursor-pointer">
+                        <div className="text-sm text-gray-600">
+                          <strong>Click to upload</strong> CSV, XLSX, TXT, or JSONL file
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Supports batch processing with Result ID, Metric, and Input columns
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="text-center text-sm text-gray-500">
+                      — OR —
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
                       <div className="md:col-span-3">
+                        <Label>Paste Batch Script</Label>
                         <Textarea
                           placeholder={
                             batchTestForm.batchScriptFormat === 'jsonl'
                               ? '{"text":"Hello there"}\n{"text":"How can I help?"}'
                               : batchTestForm.batchScriptFormat === 'csv'
-                              ? 'text\nHello there\nHow can I help?\n'
+                              ? 'Result ID,Metric,Input\nTEST_001,WER,Hello there\nTEST_002,RTF,How can I help?'
                               : 'Hello there\nHow can I help?\n'
                           }
                           rows={4}
-                          value={batchTestForm.batchScriptInput}
+                          value={batchTestForm.batchScriptFormat === 'xlsx' ? 'Excel file uploaded' : batchTestForm.batchScriptInput}
                           onChange={(e) => setBatchTestForm({ ...batchTestForm, batchScriptInput: e.target.value })}
                           className="mt-1"
+                          disabled={batchTestForm.batchScriptFormat === 'xlsx'}
                         />
                         <div className="text-xs text-gray-500 mt-1">
-                          Supports JSONL, CSV, or TXT. Recognized keys for JSONL/CSV: <code>text</code>, <code>prompt</code>, or <code>sentence</code>.
+                          Supports JSONL, CSV, XLSX, or TXT. For CSV/XLSX: use columns <code>Result ID</code>, <code>Metric</code>, <code>Input</code>.
                         </div>
                       </div>
                       <div>
@@ -1856,6 +1950,7 @@ function App() {
                             <SelectItem value="txt">TXT (one line per item)</SelectItem>
                             <SelectItem value="jsonl">JSONL</SelectItem>
                             <SelectItem value="csv">CSV</SelectItem>
+                            <SelectItem value="xlsx">XLSX (Excel)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1872,11 +1967,8 @@ function App() {
                     onClick={handleBatchTest} 
                     disabled={
                       loading ||
-                      (
-                        batchTestForm.scriptIds.length === 0 &&
-                        !(batchTestForm.batchScriptInput && batchTestForm.batchScriptInput.trim())
-                      ) ||
-                      (batchTestForm.mode === 'isolated' && batchTestForm.vendors.length === 0)
+                      !(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim()) ||
+                      (batchTestForm?.mode === 'isolated' && (!batchTestForm?.vendors || batchTestForm.vendors.length === 0))
                     }
                     className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
                   >

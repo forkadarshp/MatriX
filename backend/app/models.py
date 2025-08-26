@@ -35,8 +35,8 @@ class RunCreate(BaseModel):
     script_ids: Optional[List[str]] = None
     # New: allow providing a script directly as batched input
     batch_script_items: Optional[List[BatchScriptItem]] = None
-    batch_script_input: Optional[str] = None  # raw payload (JSONL/CSV/TXT)
-    batch_script_format: Optional[Literal["jsonl", "csv", "txt"]] = None
+    batch_script_input: Optional[str] = None  # raw payload (JSONL/CSV/TXT/XLSX)
+    batch_script_format: Optional[Literal["jsonl", "csv", "txt", "xlsx"]] = None
 
 
 class QuickRunForm(BaseModel):

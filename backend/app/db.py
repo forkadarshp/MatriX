@@ -60,6 +60,8 @@ def init_database() -> None:
             script_item_id TEXT,
             vendor TEXT NOT NULL,
             text_input TEXT NOT NULL,
+            result_id TEXT,
+            metric_type TEXT,
             audio_path TEXT,
             transcript TEXT,
             metrics_json TEXT,

@@ -44,7 +44,7 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             return {"model": models.get("stt_model") or "nova-3"}
         if vendor_name == "deepgram" and svc == "tts":
             tts_model = models.get("tts_model") or "aura-2"
-            voice = models.get("voice") or "thalia"
+            voice = models.get("voice") or "helena"
             try:
                 alias = str(tts_model)
                 if alias.startswith("aura-2-") and "-" in alias[7:]:
@@ -216,7 +216,7 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
             return {"model": models.get("stt_model") or "nova-3"}
         if vendor_name == "deepgram" and svc == "tts":
             tts_model = models.get("tts_model") or "aura-2"
-            voice = models.get("voice") or "thalia"
+            voice = models.get("voice") or "helena"
             try:
                 alias = str(tts_model)
                 if alias.startswith("aura-2-") and "-" in alias[7:]:

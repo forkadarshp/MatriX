@@ -45,7 +45,7 @@ class DeepgramAdapter(VendorAdapter):
             logger.error(f"Deepgram transcription error: {e}")
             return {"status": "error", "error": str(e), "latency": time.perf_counter() - req_time}
 
-    async def synthesize(self, text: str, model: str = "aura-2", voice: str = "thalia", container: str = "mp3", sample_rate: int = 24000, **params) -> Dict[str, Any]:
+    async def synthesize(self, text: str, model: str = "aura-2", voice: str = "helena", container: str = "mp3", sample_rate: int = 24000, **params) -> Dict[str, Any]:
         debug_log(f"Deepgram synthesize called with: model={model}, voice={voice}, container={container}, sample_rate={sample_rate}, params={params}")
         req_time = time.perf_counter()
         api_key = (self.api_key or "").strip()

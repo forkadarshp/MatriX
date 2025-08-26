@@ -76,7 +76,7 @@ function App() {
     service: 'tts',
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
-      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' },
+      deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
@@ -91,7 +91,7 @@ function App() {
     batchScriptFormat: 'txt',
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
-      deepgram: { tts_model: 'aura-2-thalia-en', stt_model: 'nova-3' },
+      deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
@@ -1432,7 +1432,7 @@ function App() {
                               <Select value={quickTestForm.models.deepgram.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, deepgram: {...quickTestForm.models.deepgram, tts_model: v}}})}>
                                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                                  <SelectItem value="aura-2-helena-en">aura-2-helena-en</SelectItem>
                                 </SelectContent>
                               </Select>
                             </>
@@ -1635,7 +1635,7 @@ function App() {
                                   <Select value={batchTestForm.models.deepgram.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, deepgram: {...batchTestForm.models.deepgram, tts_model: v}}})}>
                                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="aura-2-thalia-en">aura-2-thalia-en</SelectItem>
+                                      <SelectItem value="aura-2-helena-en">aura-2-helena-en</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </>

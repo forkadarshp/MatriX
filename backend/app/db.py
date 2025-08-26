@@ -4,8 +4,30 @@ from typing import Any, Dict
 from .config import DB_PATH, logger
 
 
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    """Apply idempotent schema migrations to bring an old DB up to date."""
+    try:
+        cursor = conn.cursor()
+        # Ensure new columns on run_items
+        try:
+            cursor.execute("PRAGMA table_info(run_items)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if columns:
+                if "result_id" not in columns:
+                    cursor.execute("ALTER TABLE run_items ADD COLUMN result_id TEXT")
+                    logger.info("DB migration: added run_items.result_id")
+                if "metric_type" not in columns:
+                    cursor.execute("ALTER TABLE run_items ADD COLUMN metric_type TEXT")
+                    logger.info("DB migration: added run_items.metric_type")
+        except Exception as e:
+            logger.error(f"DB migration (run_items columns) failed: {e}")
+        conn.commit()
+    except Exception as e:
+        logger.error(f"DB migration failed: {e}")
+
+
 def init_database() -> None:
-    """Initialize SQLite database with required tables and seed data."""
+    """Initialize SQLite database with required tables and seed data, then migrate."""
     conn = sqlite3.connect(str(DB_PATH))
     cursor = conn.cursor()
 
@@ -60,6 +82,8 @@ def init_database() -> None:
             script_item_id TEXT,
             vendor TEXT NOT NULL,
             text_input TEXT NOT NULL,
+            result_id TEXT,
+            metric_type TEXT,
             audio_path TEXT,
             transcript TEXT,
             metrics_json TEXT,
@@ -139,6 +163,9 @@ def init_database() -> None:
     )
 
     conn.commit()
+
+    # Apply migrations for existing databases that predate new schema
+    _apply_migrations(conn)
     conn.close()
 
 

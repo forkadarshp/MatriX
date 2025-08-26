@@ -87,7 +87,6 @@ function App() {
     vendors: ['elevenlabs', 'deepgram', 'aws'],
     mode: 'isolated',
     service: 'tts',
-    scriptIds: [],
     batchScriptInput: '',
     batchScriptFormat: 'txt',
     models: {
@@ -208,10 +207,9 @@ function App() {
   };
 
   const handleBatchTest = async () => {
-    const hasScriptIds = batchTestForm.scriptIds.length > 0;
-    const hasPastedBatch = !!(batchTestForm.batchScriptInput && batchTestForm.batchScriptInput.trim());
-    if (!hasScriptIds && !hasPastedBatch) {
-      setError('Add at least one input: select scripts or paste batch script content');
+    const hasPastedBatch = !!(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim());
+    if (!hasPastedBatch) {
+      setError('Please paste batch script content');
       return;
     }
 
@@ -220,19 +218,18 @@ function App() {
 
     try {
       const runData = {
-        mode: batchTestForm.mode,
-        vendors: batchTestForm.vendors,
-        script_ids: batchTestForm.scriptIds,
+        mode: batchTestForm?.mode,
+        vendors: batchTestForm?.vendors || [],
         config: {
-          service: batchTestForm.mode === 'isolated' ? batchTestForm.service : undefined,
-          models: batchTestForm.models,
-          chain: batchTestForm.chain
+          service: batchTestForm?.mode === 'isolated' ? batchTestForm?.service : undefined,
+          models: batchTestForm?.models || {},
+          chain: batchTestForm?.chain || {}
         }
       };
 
       if (hasPastedBatch) {
-        runData.batch_script_input = batchTestForm.batchScriptInput;
-        runData.batch_script_format = batchTestForm.batchScriptFormat || 'txt';
+        runData.batch_script_input = batchTestForm?.batchScriptInput;
+        runData.batch_script_format = batchTestForm?.batchScriptFormat || 'txt';
       }
 
       const response = await fetch(`${API_BASE_URL}/api/runs`, {
@@ -1640,7 +1637,7 @@ function App() {
                       {/* Vendor-level config UI - Isolated only */}
                       {batchTestForm.mode === 'isolated' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {batchTestForm.vendors.includes('elevenlabs') && (
+                          {batchTestForm?.vendors?.includes('elevenlabs') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
@@ -1667,7 +1664,7 @@ function App() {
                               )}
                             </div>
                           )}
-                          {batchTestForm.vendors.includes('deepgram') && (
+                          {batchTestForm?.vendors?.includes('deepgram') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
@@ -1693,7 +1690,7 @@ function App() {
                               )}
                             </div>
                           )}
-                          {batchTestForm.vendors.includes('aws') && (
+                          {batchTestForm?.vendors?.includes('aws') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
@@ -1730,7 +1727,7 @@ function App() {
                               )}
                             </div>
                           )}
-                          {batchTestForm.vendors.includes('azure_openai') && (
+                          {batchTestForm?.vendors?.includes('azure_openai') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
@@ -1838,17 +1835,17 @@ function App() {
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
-                              checked={batchTestForm.vendors.includes(vendor)}
+                              checked={batchTestForm?.vendors?.includes(vendor)}
                               onChange={(e) => {
                                 if (e.target.checked) {
                                   setBatchTestForm({
                                     ...batchTestForm,
-                                    vendors: [...batchTestForm.vendors, vendor]
+                                    vendors: [...(batchTestForm.vendors || []), vendor]
                                   });
                                 } else {
                                   setBatchTestForm({
                                     ...batchTestForm,
-                                    vendors: batchTestForm.vendors.filter(v => v !== vendor)
+                                    vendors: (batchTestForm.vendors || []).filter(v => v !== vendor)
                                   });
                                 }
                               }}
@@ -1861,49 +1858,7 @@ function App() {
                     </div>
                   )}
 
-                  <div>
-                    <Label>Test Scripts</Label>
-                    <div className="mt-2 space-y-3">
-                      {scripts.map((script) => (
-                        <div key={script.id} className="border rounded-lg p-3">
-                          <label className="flex items-start space-x-3">
-                            <input
-                              type="checkbox"
-                              checked={batchTestForm.scriptIds.includes(script.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setBatchTestForm({
-                                    ...batchTestForm,
-                                    scriptIds: [...batchTestForm.scriptIds, script.id]
-                                  });
-                                } else {
-                                  setBatchTestForm({
-                                    ...batchTestForm,
-                                    scriptIds: batchTestForm.scriptIds.filter(id => id !== script.id)
-                                  });
-                                }
-                              }}
-                              className="mt-1 rounded border-gray-300"
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium">{script.name}</div>
-                              <div className="text-sm text-gray-500 mt-1">{script.description}</div>
-                              <div className="flex items-center space-x-2 mt-2">
-                                <Badge variant="secondary" className="text-xs">
-                                  {script.item_count} items
-                                </Badge>
-                                {script.tags && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {script.tags}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+
 
                   <div className="space-y-2">
                     <Label>Paste Batch Script (optional)</Label>
@@ -1950,11 +1905,8 @@ function App() {
                     onClick={handleBatchTest} 
                     disabled={
                       loading ||
-                      (
-                        batchTestForm.scriptIds.length === 0 &&
-                        !(batchTestForm.batchScriptInput && batchTestForm.batchScriptInput.trim())
-                      ) ||
-                      (batchTestForm.mode === 'isolated' && batchTestForm.vendors.length === 0)
+                      !(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim()) ||
+                      (batchTestForm?.mode === 'isolated' && (!batchTestForm?.vendors || batchTestForm.vendors.length === 0))
                     }
                     className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
                   >

@@ -879,9 +879,29 @@ function App() {
       );
     };
 
-    const ItemCard = ({ item }) => {
+    const ItemCard = ({ item, preferredService = null }) => {
       const [subjectiveRatings, setSubjectiveRatings] = useState({});
       const [uniqueUserCount, setUniqueUserCount] = useState(0);
+      
+      const getModelName = () => {
+        try {
+          const meta = typeof item.metrics_json === 'string' ? JSON.parse(item.metrics_json || '{}') : (item.metrics_json || {});
+          const svc = classifyService(item);
+          if (svc === 'tts') return meta.tts_model || meta.model || null;
+          if (svc === 'stt') return meta.stt_model || meta.model || null;
+          if (svc === 'e2e') {
+            if (preferredService === 'stt') return meta.stt_model || meta.model|| null;
+            // default to TTS when rendering under TTS section
+            if (preferredService === 'tts') return meta.tts_model || meta.model|| null;
+            // fallback if no preference
+            return meta.tts_model || meta.stt_model || meta.model || null;
+          }
+          return null;
+        } catch (e) {
+          return null;
+        }
+      };
+      const modelName = getModelName();
       
       const fetchSubjectiveRatings = async () => {
         try {
@@ -917,7 +937,12 @@ function App() {
               {item.vendor === 'deepgram' && <Mic className="h-4 w-4 text-green-600" />}
               {item.vendor === 'aws' && <Zap className="h-4 w-4 text-orange-600" />}
               {item.vendor === 'azure_openai' && <MessageSquare className="h-4 w-4 text-blue-600" />}
-              <span className="font-medium capitalize">{item.vendor.replace('_', ' ')}</span>
+              <span className="font-medium capitalize">
+                {item.vendor.replace('_', ' ')}
+                {modelName && (
+                  <span className="ml-2 font-medium normal-case">• {modelName}</span>
+                )}
+              </span>
               {renderServiceBadge(item)}
               <Badge variant="outline" className={getStatusColor(item.status)}>
                 {item.status}
@@ -1082,7 +1107,7 @@ function App() {
                       </div>
                       <div className="space-y-4 pl-2">
                         {ttsItems.map((item) => (
-                          <ItemCard key={item.id} item={item} />
+                          <ItemCard key={item.id} item={item} preferredService="tts" />
                         ))}
                       </div>
                     </div>
@@ -1098,7 +1123,7 @@ function App() {
                       </div>
                       <div className="space-y-4 pl-2">
                         {sttItems.map((item) => (
-                          <ItemCard key={item.id} item={item} />
+                          <ItemCard key={item.id} item={item} preferredService="stt" />
                         ))}
                       </div>
                     </div>

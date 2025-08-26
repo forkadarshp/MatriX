@@ -55,6 +55,8 @@ function ExportToolbar({ runs }) {
 
 
 const API_BASE_URL = import.meta?.env?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+const SHOW_QUICK_TEST = false;
+const SHOW_DASHBOARD_DETAILS = false;
 
 function App() {
   const [dashboardStats, setDashboardStats] = useState({});
@@ -1147,10 +1149,12 @@ function App() {
               <BarChart3 className="h-4 w-4 mr-2" />
               Dashboard
             </TabsTrigger>
-            <TabsTrigger value="quick-test" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-              <Zap className="h-4 w-4 mr-2" />
-              Quick Test
-            </TabsTrigger>
+            {SHOW_QUICK_TEST && (
+              <TabsTrigger value="quick-test" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <Zap className="h-4 w-4 mr-2" />
+                Quick Test
+              </TabsTrigger>
+            )}
             <TabsTrigger value="batch-test" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <Target className="h-4 w-4 mr-2" />
               Batch Test
@@ -1163,6 +1167,8 @@ function App() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
+            {SHOW_DASHBOARD_DETAILS ? (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <StatCard
                 icon={Target}
@@ -1325,9 +1331,14 @@ function App() {
                 )}
               </CardContent>
             </Card>
+            </>
+            ) : (
+              <div className="text-sm text-gray-500">Dashboard Work In Progress.</div>
+            )}
           </TabsContent>
 
           {/* Quick Test Tab */}
+          {SHOW_QUICK_TEST && (
           <TabsContent value="quick-test" className="space-y-6">
             <Card>
               <CardHeader>
@@ -1568,6 +1579,7 @@ function App() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
 
           {/* Batch Test Tab */}
           <TabsContent value="batch-test" className="space-y-6">

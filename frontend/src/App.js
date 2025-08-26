@@ -77,13 +77,14 @@ function App() {
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
+      aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
   
   const [batchTestForm, setBatchTestForm] = useState({
-    vendors: ['elevenlabs', 'deepgram'],
+    vendors: ['elevenlabs', 'deepgram', 'aws'],
     mode: 'isolated',
     service: 'tts',
     scriptIds: [],
@@ -92,6 +93,7 @@ function App() {
     models: {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
+      aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
@@ -1450,6 +1452,43 @@ function App() {
                           )}
                         </div>
                       )}
+                      {quickTestForm.vendors.includes('aws') && (
+                        <div className="space-y-2">
+                          {quickTestForm.service === 'tts' && (
+                            <>
+                              <Label>AWS TTS Model</Label>
+                              <Select value={quickTestForm.models.aws.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, aws: {...quickTestForm.models.aws, tts_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="polly">polly</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Label className="mt-2">Voice</Label>
+                              <Select value={quickTestForm.models.aws.voice_id} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, aws: {...quickTestForm.models.aws, voice_id: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Joanna">Joanna</SelectItem>
+                                  <SelectItem value="Matthew">Matthew</SelectItem>
+                                  <SelectItem value="Amy">Amy</SelectItem>
+                                  <SelectItem value="Brian">Brian</SelectItem>
+                                  <SelectItem value="Emma">Emma</SelectItem>
+                                  <SelectItem value="Russell">Russell</SelectItem>
+                                  <SelectItem value="Nicole">Nicole</SelectItem>
+                                  <SelectItem value="Raveena">Raveena</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Label className="mt-2">Engine</Label>
+                              <Select value={quickTestForm.models.aws.engine} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, aws: {...quickTestForm.models.aws, engine: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="neural">neural</SelectItem>
+                                  <SelectItem value="standard">standard</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                        </div>
+                      )}
                       {quickTestForm.vendors.includes('azure_openai') && (
                         <div className="space-y-2">
                           {quickTestForm.service === 'tts' && (
@@ -1502,6 +1541,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                            <SelectItem value="aws">AWS (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1653,6 +1693,43 @@ function App() {
                               )}
                             </div>
                           )}
+                          {batchTestForm.vendors.includes('aws') && (
+                            <div className="space-y-2">
+                              {batchTestForm.service === 'tts' && (
+                                <>
+                                  <Label>AWS TTS Model</Label>
+                                  <Select value={batchTestForm.models.aws.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, aws: {...batchTestForm.models.aws, tts_model: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="polly">polly</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Label className="mt-2">Voice</Label>
+                                  <Select value={batchTestForm.models.aws.voice_id} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, aws: {...batchTestForm.models.aws, voice_id: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="Joanna">Joanna</SelectItem>
+                                      <SelectItem value="Matthew">Matthew</SelectItem>
+                                      <SelectItem value="Amy">Amy</SelectItem>
+                                      <SelectItem value="Brian">Brian</SelectItem>
+                                      <SelectItem value="Emma">Emma</SelectItem>
+                                      <SelectItem value="Russell">Russell</SelectItem>
+                                      <SelectItem value="Nicole">Nicole</SelectItem>
+                                      <SelectItem value="Raveena">Raveena</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Label className="mt-2">Engine</Label>
+                                  <Select value={batchTestForm.models.aws.engine} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, aws: {...batchTestForm.models.aws, engine: v}}})}>
+                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="neural">neural</SelectItem>
+                                      <SelectItem value="standard">standard</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </>
+                              )}
+                            </div>
+                          )}
                           {batchTestForm.vendors.includes('azure_openai') && (
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
@@ -1733,6 +1810,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
+                            <SelectItem value="aws">AWS (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                           </SelectContent>
                         </Select>

@@ -158,6 +158,7 @@ def init_database() -> None:
 
         INSERT OR IGNORE INTO subjective_metrics (id, name, description, service_type, scale_min, scale_max) VALUES 
         ('stt_disfluency', 'Disfluency Recognition', 'How well does the system recognize and handle speech disfluencies?', 'stt', 1, 5),
+        ('stt_pronunciation', 'Pronunciation Recognition', 'How accurately does the system recognize and transcribe words, especially complex or technical terms?', 'stt', 1, 5),
         ('stt_language_switch', 'Language Switching Accuracy', 'How accurately does the system handle language switches within speech?', 'stt', 1, 5);
         """
     )

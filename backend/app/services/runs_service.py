@@ -61,6 +61,8 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             result = {"voice": models.get("voice_id") or "Joanna", "engine": models.get("engine") or "neural"}
             logger.info(f"Picked models for AWS TTS: {result}")
             return result
+        if vendor_name == "olm_asr" and svc == "stt":
+            return {"model": models.get("stt_model") or "base"}
         return {}
 
     if service == "tts":
@@ -233,6 +235,8 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
             result = {"voice": models.get("voice_id") or "Joanna", "engine": models.get("engine") or "neural"}
             logger.info(f"Picked models for AWS TTS: {result}")
             return result
+        if vendor_name == "olm_asr" and svc == "stt":
+            return {"model": models.get("stt_model") or "base"}
         return {}
 
     tts_adapter = VENDOR_ADAPTERS[tts_vendor]["tts"]

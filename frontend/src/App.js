@@ -80,7 +80,8 @@ function App() {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
-      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
+      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' },
+      olm_asr: { stt_model: 'base' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
@@ -96,7 +97,8 @@ function App() {
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' },
-      vibevoice: { }
+      vibevoice: { },
+      olm_asr: { stt_model: 'base' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
@@ -1648,6 +1650,22 @@ function App() {
                           )}
                         </div>
                       )}
+                      {quickTestForm.vendors.includes('olm_asr') && (
+                        <div className="space-y-2">
+                          {quickTestForm.service === 'stt' && (
+                            <>
+                              <Label>OLMoASR STT Model</Label>
+                              <Select value={quickTestForm.models.olm_asr.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, olm_asr: {...quickTestForm.models.olm_asr, stt_model: v}}})}>
+                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="base">base</SelectItem>
+                                  <SelectItem value="medium">medium</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1674,6 +1692,7 @@ function App() {
                             <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
                             <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (STT)</SelectItem>
+                            <SelectItem value="olm_asr">OLMoASR (STT)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1685,7 +1704,7 @@ function App() {
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai'].map((vendor) => (
+                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai', 'olm_asr'].map((vendor) => (
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
@@ -2010,6 +2029,7 @@ function App() {
                             <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
                             <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (STT)</SelectItem>
+                            <SelectItem value="olm_asr">OLMoASR (STT)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2021,7 +2041,7 @@ function App() {
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai', 'vibevoice'].map((vendor) => (
+                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai', 'vibevoice', 'olm_asr'].map((vendor) => (
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"

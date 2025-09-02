@@ -1563,6 +1563,7 @@ function App() {
                                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="base">base</SelectItem>
+                                  <SelectItem value="small">small</SelectItem>
                                   <SelectItem value="medium">medium</SelectItem>
                                 </SelectContent>
                               </Select>
@@ -1821,7 +1822,8 @@ function App() {
                                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="base">base</SelectItem>
-                                      <SelectItem value="large">large</SelectItem>
+                                      <SelectItem value="small">small</SelectItem>
+                                      <SelectItem value="medium">medium</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </>

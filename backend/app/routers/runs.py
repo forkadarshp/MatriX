@@ -437,3 +437,71 @@ async def create_quick_run(text: str = Form(...), vendors: str = Form(...), mode
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/runs/{run_id}")
+async def delete_run(run_id: str):
+    """Delete a run and all its associated data from the database.
+
+    This will remove:
+    - run_items for the run
+    - metrics for those run_items
+    - artifacts for those run_items
+    - user_ratings for those run_items
+    Then delete the run itself.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM runs WHERE id = ?", (run_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        # Find all run item ids for cascading deletes
+        cursor.execute("SELECT id FROM run_items WHERE run_id = ?", (run_id,))
+        item_rows = cursor.fetchall()
+        item_ids = [row[0] for row in item_rows]
+
+        if item_ids:
+            qmarks = ",".join(["?"] * len(item_ids))
+            # Delete dependent tables first
+            cursor.execute(f"DELETE FROM metrics WHERE run_item_id IN ({qmarks})", item_ids)
+            cursor.execute(f"DELETE FROM artifacts WHERE run_item_id IN ({qmarks})", item_ids)
+            cursor.execute(f"DELETE FROM user_ratings WHERE run_item_id IN ({qmarks})", item_ids)
+            cursor.execute(f"DELETE FROM run_items WHERE id IN ({qmarks})", item_ids)
+
+        # Finally delete the run
+        cursor.execute("DELETE FROM runs WHERE id = ?", (run_id,))
+        conn.commit()
+        return {"message": "Run deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete run: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.delete("/run-items/{item_id}")
+async def delete_run_item(item_id: str):
+    """Delete a single run item and all associated data from the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id FROM run_items WHERE id = ?", (item_id,))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Run item not found")
+
+        cursor.execute("DELETE FROM metrics WHERE run_item_id = ?", (item_id,))
+        cursor.execute("DELETE FROM artifacts WHERE run_item_id = ?", (item_id,))
+        cursor.execute("DELETE FROM user_ratings WHERE run_item_id = ?", (item_id,))
+        cursor.execute("DELETE FROM run_items WHERE id = ?", (item_id,))
+        conn.commit()
+        return {"message": "Run item deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete run item: {str(e)}")
+    finally:
+        conn.close()
+

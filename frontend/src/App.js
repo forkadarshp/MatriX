@@ -95,10 +95,14 @@ function App() {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
-      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
+      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' },
+      vibevoice: { }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
+
+  const [vibevoiceFiles, setVibevoiceFiles] = useState([]);
+  const [selectedVibeFiles, setSelectedVibeFiles] = useState([]);
 
   // Fetch functions
   const fetchDashboardStats = useCallback(async () => {
@@ -145,6 +149,18 @@ function App() {
     }
   }, []);
 
+  const fetchVibeVoiceFiles = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/vibevoice/files`);
+      if (!response.ok) throw new Error('Failed to fetch VibeVoice files');
+      const data = await response.json();
+      setVibevoiceFiles(data.files || []);
+    } catch (err) {
+      console.error('Error fetching VibeVoice files:', err);
+      setVibevoiceFiles([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDashboardStats();
     fetchInsights();
@@ -164,6 +180,19 @@ function App() {
     
     return () => clearInterval(interval);
   }, [activeTab, fetchDashboardStats, fetchRuns]);
+
+  // Fetch vibevoice file list when relevant in Batch Test
+  useEffect(() => {
+    const needVibeFiles = (
+      activeTab === 'batch-test' && (
+        (batchTestForm.mode === 'isolated' && batchTestForm.service === 'tts' && (batchTestForm?.vendors || []).includes('vibevoice')) ||
+        (batchTestForm.mode === 'chained' && batchTestForm?.chain?.tts_vendor === 'vibevoice')
+      )
+    );
+    if (needVibeFiles) {
+      fetchVibeVoiceFiles();
+    }
+  }, [activeTab, batchTestForm.mode, batchTestForm.service, batchTestForm.vendors, batchTestForm?.chain?.tts_vendor, fetchVibeVoiceFiles]);
 
   const handleQuickTest = async () => {
     if (!quickTestForm.text.trim()) {
@@ -210,8 +239,11 @@ function App() {
 
   const handleBatchTest = async () => {
     const hasPastedBatch = !!(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim());
-    if (!hasPastedBatch) {
-      setError('Please paste batch script content');
+    const vibeInIsolated = batchTestForm?.mode === 'isolated' && batchTestForm?.service === 'tts' && (batchTestForm?.vendors || []).includes('vibevoice');
+    const vibeInChained = batchTestForm?.mode === 'chained' && batchTestForm?.chain?.tts_vendor === 'vibevoice';
+    const vibeOnlySelectionValid = (selectedVibeFiles?.length || 0) > 0 && (vibeInIsolated || vibeInChained);
+    if (!hasPastedBatch && !vibeOnlySelectionValid) {
+      setError('Please paste batch script content or select VibeVoice files');
       return;
     }
 
@@ -232,6 +264,28 @@ function App() {
       if (hasPastedBatch) {
         runData.batch_script_input = batchTestForm?.batchScriptInput;
         runData.batch_script_format = batchTestForm?.batchScriptFormat || 'txt';
+      }
+
+      // If VibeVoice TTS is selected, map selected files to text_inputs (mapped text) and audio_map (text -> filename)
+      if (vibeInIsolated || vibeInChained) {
+        const selected = selectedVibeFiles || [];
+        if (selected.length > 0) {
+          const fileMap = Object.fromEntries((vibevoiceFiles || []).map((f) => [f.name, f]));
+          const pairs = selected.map((name) => {
+            const f = fileMap[name];
+            const text = (f && typeof f.text === 'string' && f.text.trim()) ? f.text.trim() : name;
+            return [text, name];
+          });
+          const mappedTexts = pairs.map(([text]) => text);
+          const audioMap = Object.fromEntries(pairs);
+          runData.text_inputs = [...(runData.text_inputs || []), ...mappedTexts];
+          runData.config = runData.config || {};
+          runData.config.models = runData.config.models || {};
+          runData.config.models.vibevoice = {
+            audio_map: audioMap,
+            audio_dir: 'storage/vibevoice'
+          };
+        }
       }
 
       const response = await fetch(`${API_BASE_URL}/api/runs`, {
@@ -975,15 +1029,28 @@ function App() {
                 return { name, value };
               });
               
+              const serviceType = classifyService(item);
+              
               // Group metrics by type
-              const performanceMetrics = metrics.filter(m => 
-                ['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration'].includes(m.name)
+              let performanceMetrics = metrics.filter(m => 
+                ['ttfb', 'tts_ttfb', 'rtf', 'tts_rtf', 'stt_rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration'].includes(m.name)
               );
+              
+              if (serviceType === 'tts') {
+                performanceMetrics = performanceMetrics.filter(m => !m.name.startsWith('stt_'));
+              } else if (serviceType === 'stt') {
+                performanceMetrics = performanceMetrics.filter(m => !m.name.startsWith('tts_') && m.name !== 'ttfb');
+              }
+
               const qualityMetrics = metrics.filter(m => 
-                ['wer', 'bleu', 'rouge'].includes(m.name)
+                ['wer', 'bleu', 'rouge', 'confidence'].includes(m.name)
               );
+
+              const perfMetricNames = performanceMetrics.map(m => m.name);
+              const qualityMetricNames = qualityMetrics.map(m => m.name);
+
               const otherMetrics = metrics.filter(m => 
-                !['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration', 'wer', 'confidence', 'bleu', 'rouge'].includes(m.name)
+                !perfMetricNames.includes(m.name) && !qualityMetricNames.includes(m.name)
               );
               
               // Add subjective metrics
@@ -1793,6 +1860,41 @@ function App() {
                               )}
                             </div>
                           )}
+                          {batchTestForm?.vendors?.includes('vibevoice') && (
+                            <div className="space-y-2">
+                              {batchTestForm.service === 'tts' && (
+                                <>
+                                  <Label>VibeVoice Files</Label>
+                                  <div className="max-h-60 overflow-auto bg-white border rounded p-2">
+                                    {(vibevoiceFiles || []).length === 0 && (
+                                      <div className="text-xs text-gray-500">No files found in VibeVoice folder.</div>
+                                    )}
+                                    {(vibevoiceFiles || []).map((f) => (
+                                      <label key={f.name} className="flex items-center space-x-2 text-sm py-0.5">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedVibeFiles.includes(f.name)}
+                                          onChange={(e) => {
+                                            setSelectedVibeFiles((prev) => {
+                                              if (e.target.checked) return Array.from(new Set([...(prev || []), f.name]));
+                                              return (prev || []).filter((n) => n !== f.name);
+                                            });
+                                          }}
+                                          className="rounded border-gray-300"
+                                        />
+                                        <span className="truncate">{f.name}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                    <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles((vibevoiceFiles || []).map((f) => f.name))}>Select All</Button>
+                                    <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles([])}>Clear</Button>
+                                    <span className="ml-auto">{selectedVibeFiles.length} selected</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1836,8 +1938,40 @@ function App() {
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
                             <SelectItem value="aws">AWS (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
+                            <SelectItem value="vibevoice">VibeVoice (pre-synth)</SelectItem>
                           </SelectContent>
                         </Select>
+                        {batchTestForm?.chain?.tts_vendor === 'vibevoice' && (
+                          <div className="mt-3 space-y-2">
+                            <Label>VibeVoice Files</Label>
+                            <div className="max-h-60 overflow-auto bg-white border rounded p-2">
+                              {(vibevoiceFiles || []).length === 0 && (
+                                <div className="text-xs text-gray-500">No files found in VibeVoice folder.</div>
+                              )}
+                              {(vibevoiceFiles || []).map((f) => (
+                                <label key={f.name} className="flex items-center space-x-2 text-sm py-0.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedVibeFiles.includes(f.name)}
+                                    onChange={(e) => {
+                                      setSelectedVibeFiles((prev) => {
+                                        if (e.target.checked) return Array.from(new Set([...(prev || []), f.name]));
+                                        return (prev || []).filter((n) => n !== f.name);
+                                      });
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <span className="truncate">{f.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles((vibevoiceFiles || []).map((f) => f.name))}>Select All</Button>
+                              <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles([])}>Clear</Button>
+                              <span className="ml-auto">{selectedVibeFiles.length} selected</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Chained: STT Vendor</Label>
@@ -1858,7 +1992,7 @@ function App() {
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai'].map((vendor) => (
+                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai', 'vibevoice'].map((vendor) => (
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
@@ -1992,7 +2126,18 @@ function App() {
                     onClick={handleBatchTest} 
                     disabled={
                       loading ||
-                      !(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim()) ||
+                      !(
+                        // Allow either pasted batch content
+                        (batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim()) ||
+                        // Or VibeVoice selection when applicable
+                        (
+                          (
+                            (batchTestForm?.mode === 'isolated' && batchTestForm?.service === 'tts' && (batchTestForm?.vendors || []).includes('vibevoice')) ||
+                            (batchTestForm?.mode === 'chained' && batchTestForm?.chain?.tts_vendor === 'vibevoice')
+                          ) &&
+                          (selectedVibeFiles?.length || 0) > 0
+                        )
+                      ) ||
                       (batchTestForm?.mode === 'isolated' && (!batchTestForm?.vendors || batchTestForm.vendors.length === 0))
                     }
                     className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"

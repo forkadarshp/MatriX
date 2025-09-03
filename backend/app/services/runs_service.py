@@ -32,7 +32,7 @@ def _get_run_config_for_item(conn, item_id: str) -> Dict[str, Any]:
 async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn) -> None:
     cursor = conn.cursor()
     cfg = _get_run_config_for_item(conn, item_id)
-    service = (cfg.get("service") or ("tts" if vendor in ["elevenlabs", "aws"] else "stt")).lower()
+    service = (cfg.get("service") or ("tts" if vendor in ["elevenlabs", "aws", "vibevoice"] else "stt")).lower()
 
     def pick_models(vendor_name: str, svc: str) -> Dict[str, Any]:
         models = (cfg.get("models") or {}).get(vendor_name, {})
@@ -42,6 +42,18 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
             return {"model_id": models.get("stt_model") or "scribe_v1"}
         if vendor_name == "deepgram" and svc == "stt":
             return {"model": models.get("stt_model") or "nova-3"}
+        if vendor_name == "vibevoice" and svc == "tts":
+            # Pass-through parameters for pre-synthesized audio selection
+            result = {
+                "audio_map": models.get("audio_map"),
+                "mapping_file": models.get("mapping_file"),
+                # Default to storage/vibevoice where samples are stored
+                "audio_dir": models.get("audio_dir") or "storage/vibevoice",
+                "audio_path": models.get("audio_path"),
+                "voice": models.get("voice_id") or "vibevoice",
+            }
+            debug_log(f"VibeVoice pick_models result: {result}")
+            return result
         if vendor_name == "deepgram" and svc == "tts":
             tts_model = models.get("tts_model") or "aura-2"
             voice = models.get("voice") or "helena"
@@ -214,6 +226,17 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
             return {"model_id": models.get("stt_model") or "scribe_v1"}
         if vendor_name == "deepgram" and svc == "stt":
             return {"model": models.get("stt_model") or "nova-3"}
+        if vendor_name == "vibevoice" and svc == "tts":
+            result = {
+                "audio_map": models.get("audio_map"),
+                "mapping_file": models.get("mapping_file"),
+                # Default to storage/vibevoice where samples are stored
+                "audio_dir": models.get("audio_dir") or "storage/vibevoice",
+                "audio_path": models.get("audio_path"),
+                "voice": models.get("voice_id") or "vibevoice",
+            }
+            debug_log(f"VibeVoice (chained) pick_models result: {result}")
+            return result
         if vendor_name == "deepgram" and svc == "tts":
             tts_model = models.get("tts_model") or "aura-2"
             voice = models.get("voice") or "helena"

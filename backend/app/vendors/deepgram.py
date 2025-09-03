@@ -61,7 +61,7 @@ class DeepgramAdapter(VendorAdapter):
             if container == "wav":
                 params = {"model": combined_model, "encoding": "linear16", "container": "wav", "sample_rate": str(sample_rate)}
             else:
-                params = {"model": combined_model, "encoding": "mp3", "bit_rate": "48000"}
+                params = {"model": combined_model, "encoding": "mp3"}
                 container = "mp3"
             payload = {"text": text}
             file_ext = "wav" if container == "wav" else "mp3"
@@ -70,23 +70,20 @@ class DeepgramAdapter(VendorAdapter):
             req_time = time.perf_counter()
             ttfb = None
             file_size = 0
-            audio_chunks = []
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(http2=True) as client:
                 logger.info(f"Deepgram TTS request: {url} with params: {params} and payload: {payload}")
                 async with client.stream("POST", url, headers=headers, params=params, json=payload, timeout=60.0) as resp:
                     if resp.status_code != 200:
                         error_text = await resp.aread()
                         logger.error(f"Deepgram TTS error response: {resp.status_code} - {error_text.decode()}")
                         return {"status": "error", "error": f"HTTP {resp.status_code}: {error_text.decode()}", "latency": 0.0}
-                    async for chunk in resp.aiter_bytes(chunk_size=1024):
-                        if ttfb is None:
-                            ttfb = time.perf_counter() - req_time
-                        audio_chunks.append(chunk)
-                        file_size += len(chunk)
+                    async with aiofiles.open(audio_path, 'wb') as f:
+                        async for chunk in resp.aiter_bytes(chunk_size=65536):
+                            if ttfb is None:
+                                ttfb = time.perf_counter() - req_time
+                            await f.write(chunk)
+                            file_size += len(chunk)
                     api_resp_time = time.perf_counter()
-            async with aiofiles.open(audio_path, 'wb') as f:
-                for chunk in audio_chunks:
-                    await f.write(chunk)
             latency = api_resp_time - req_time
             duration = 0.0
             if container == "wav" and file_size > 44:

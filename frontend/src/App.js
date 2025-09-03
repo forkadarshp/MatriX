@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -65,7 +65,7 @@ function App() {
   const [insights, setInsights] = useState({ service_mix: {}, vendor_usage: { tts: {}, stt: {} }, top_vendor_pairings: [] });
   const [runs, setRuns] = useState([]);
   const [scripts, setScripts] = useState([]);
-  const [filters, setFilters] = useState({ vendor: 'all', service: 'all' });
+  const [filters, setFilters] = useState({ vendor: 'all', service: 'all', model: 'all' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -297,7 +297,7 @@ function App() {
     </Card>
   );
 
-  const RunResultCard = ({ run }) => {
+  const RunResultCard = ({ run, filters = { vendor: 'all', service: 'all', model: 'all' } }) => {
     const [expanded, setExpanded] = useState(false);
 
     const classifyService = (item) => {
@@ -1124,7 +1124,25 @@ function App() {
         {expanded && (
           <CardContent className="pt-0">
             {(() => {
-              const items = run.items || [];
+              const items = (run.items || []).filter((it) => {
+                const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                if (filters.service !== 'all') {
+                  if (filters.service === 'tts' && svc !== 'tts') return false;
+                  if (filters.service === 'stt' && svc !== 'stt') return false;
+                }
+                if (filters.vendor !== 'all' && String(it.vendor) !== String(filters.vendor)) return false;
+                if (filters.model !== 'all') {
+                  try {
+                    const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
+                    let modelName = null;
+                    if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
+                    else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
+                    else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
+                    if (String(modelName) !== String(filters.model)) return false;
+                  } catch (e) { return false; }
+                }
+                return true;
+              });
               const ttsItems = items.filter((it) => classifyService(it) === 'tts');
               const sttItems = items.filter((it) => {
                 const svc = classifyService(it);
@@ -2109,6 +2127,74 @@ function App() {
                   <div className="text-sm text-gray-600">Latest test runs and their performance</div>
                   <ExportToolbar runs={runs} />
                 </div>
+
+                {(() => {
+                  const allVendors = useMemo(() => {
+                    const s = new Set();
+                    (runs || []).forEach(run => {
+                      (run.items || []).forEach(it => s.add(it.vendor));
+                    });
+                    return Array.from(s);
+                  }, [runs]);
+                  const allModels = useMemo(() => {
+                    const s = new Set();
+                    (runs || []).forEach(run => {
+                      (run.items || []).forEach(it => {
+                        try {
+                          const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
+                          const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                          let modelName = null;
+                          if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
+                          else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
+                          else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
+                          if (modelName) s.add(modelName);
+                        } catch (e) {}
+                      });
+                    });
+                    return Array.from(s);
+                  }, [runs]);
+
+                  return (
+                    <div className="flex flex-wrap items-end gap-3 mb-4">
+                      <div>
+                        <Label className="text-xs">Use Case</Label>
+                        <Select value={filters.service} onValueChange={(v) => setFilters({ ...filters, service: v })}>
+                          <SelectTrigger className="mt-1 w-[160px]"><SelectValue placeholder="All" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="tts">TTS</SelectItem>
+                            <SelectItem value="stt">STT</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Vendor</Label>
+                        <Select value={filters.vendor} onValueChange={(v) => setFilters({ ...filters, vendor: v })}>
+                          <SelectTrigger className="mt-1 w-[180px]"><SelectValue placeholder="All" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            {allVendors.map(v => (
+                              <SelectItem key={v} value={v}>{String(v)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Model</Label>
+                        <Select value={filters.model} onValueChange={(v) => setFilters({ ...filters, model: v })}>
+                          <SelectTrigger className="mt-1 w-[220px]"><SelectValue placeholder="All" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            {allModels.map(m => (
+                              <SelectItem key={m} value={m}>{String(m)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {runs.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -2117,9 +2203,31 @@ function App() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {runs.map((run) => (
-                      <RunResultCard key={run.id} run={run} />
-                    ))}
+                    {(() => {
+                      const matches = (it) => {
+                        const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                        if (filters.service !== 'all') {
+                          if (filters.service === 'tts' && svc !== 'tts') return false;
+                          if (filters.service === 'stt' && svc !== 'stt') return false;
+                        }
+                        if (filters.vendor !== 'all' && String(it.vendor) !== String(filters.vendor)) return false;
+                        if (filters.model !== 'all') {
+                          try {
+                            const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
+                            let modelName = null;
+                            if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
+                            else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
+                            else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
+                            if (String(modelName) !== String(filters.model)) return false;
+                          } catch (e) { return false; }
+                        }
+                        return true;
+                      };
+                      const filtered = runs.filter(run => (run.items || []).some(matches));
+                      return filtered.map((run) => (
+                        <RunResultCard key={run.id} run={run} filters={filters} />
+                      ));
+                    })()}
                   </div>
                 )}
               </CardContent>

@@ -9,6 +9,11 @@ from typing import Any, Optional
 
 from .config import logger
 
+import soundfile as sf
+from starlette.responses import FileResponse
+
+# A global cache for audio durations
+audio_duration_cache = {}
 
 # Optional libraries
 try:
@@ -125,6 +130,20 @@ def get_audio_duration_seconds(audio_path: str) -> float:
 
     logger.warning(f"Unable to determine duration for {audio_path}")
     return 0.0
+
+def get_audio_duration(file_path: str) -> float:
+    """Get the duration of an audio file and cache the result."""
+    if file_path in audio_duration_cache:
+        return audio_duration_cache[file_path]
+
+    try:
+        with sf.SoundFile(file_path) as f:
+            duration = len(f) / f.samplerate
+            audio_duration_cache[file_path] = duration
+            return duration
+    except Exception as e:
+        logger.error(f"Failed to get duration for audio file {file_path}: {e}")
+        return 0.0
 
 
 def calculate_rtf(latency: float, audio_duration: float, metric_name: str = "RTF") -> Optional[float]:

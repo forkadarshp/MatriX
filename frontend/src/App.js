@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -10,7 +10,7 @@ import { Progress } from './components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Alert, AlertDescription } from './components/ui/alert';
 import { Separator } from './components/ui/separator';
-import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker, FileText, Star, User, MessageSquare, Trash2 } from 'lucide-react';
+import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker, FileText, Star, User, MessageSquare } from 'lucide-react';
 import './App.css';
 
 function ExportToolbar({ runs }) {
@@ -65,7 +65,7 @@ function App() {
   const [insights, setInsights] = useState({ service_mix: {}, vendor_usage: { tts: {}, stt: {} }, top_vendor_pairings: [] });
   const [runs, setRuns] = useState([]);
   const [scripts, setScripts] = useState([]);
-  const [filters, setFilters] = useState({ vendor: 'all', service: 'all', model: 'all' });
+  const [filters, setFilters] = useState({ vendor: 'all', service: 'all' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -80,8 +80,7 @@ function App() {
       elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: '21m00Tcm4TlvDq8ikWAM' },
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
-      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' },
-      olm_asr: { stt_model: 'base' }
+      azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
@@ -97,10 +96,13 @@ function App() {
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' },
-      olm_asr: { stt_model: 'base' }
+      vibevoice: { }
     },
     chain: { tts_vendor: 'elevenlabs', stt_vendor: 'deepgram' }
   });
+
+  const [vibevoiceFiles, setVibevoiceFiles] = useState([]);
+  const [selectedVibeFiles, setSelectedVibeFiles] = useState([]);
 
   // Fetch functions
   const fetchDashboardStats = useCallback(async () => {
@@ -147,6 +149,18 @@ function App() {
     }
   }, []);
 
+  const fetchVibeVoiceFiles = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/vibevoice/files`);
+      if (!response.ok) throw new Error('Failed to fetch VibeVoice files');
+      const data = await response.json();
+      setVibevoiceFiles(data.files || []);
+    } catch (err) {
+      console.error('Error fetching VibeVoice files:', err);
+      setVibevoiceFiles([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchDashboardStats();
     fetchInsights();
@@ -166,6 +180,19 @@ function App() {
     
     return () => clearInterval(interval);
   }, [activeTab, fetchDashboardStats, fetchRuns]);
+
+  // Fetch vibevoice file list when relevant in Batch Test
+  useEffect(() => {
+    const needVibeFiles = (
+      activeTab === 'batch-test' && (
+        (batchTestForm.mode === 'isolated' && batchTestForm.service === 'tts' && (batchTestForm?.vendors || []).includes('vibevoice')) ||
+        (batchTestForm.mode === 'chained' && batchTestForm?.chain?.tts_vendor === 'vibevoice')
+      )
+    );
+    if (needVibeFiles) {
+      fetchVibeVoiceFiles();
+    }
+  }, [activeTab, batchTestForm.mode, batchTestForm.service, batchTestForm.vendors, batchTestForm?.chain?.tts_vendor, fetchVibeVoiceFiles]);
 
   const handleQuickTest = async () => {
     if (!quickTestForm.text.trim()) {
@@ -212,8 +239,11 @@ function App() {
 
   const handleBatchTest = async () => {
     const hasPastedBatch = !!(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim());
-    if (!hasPastedBatch) {
-      setError('Please paste batch script content');
+    const vibeInIsolated = batchTestForm?.mode === 'isolated' && batchTestForm?.service === 'tts' && (batchTestForm?.vendors || []).includes('vibevoice');
+    const vibeInChained = batchTestForm?.mode === 'chained' && batchTestForm?.chain?.tts_vendor === 'vibevoice';
+    const vibeOnlySelectionValid = (selectedVibeFiles?.length || 0) > 0 && (vibeInIsolated || vibeInChained);
+    if (!hasPastedBatch && !vibeOnlySelectionValid) {
+      setError('Please paste batch script content or select VibeVoice files');
       return;
     }
 
@@ -234,6 +264,28 @@ function App() {
       if (hasPastedBatch) {
         runData.batch_script_input = batchTestForm?.batchScriptInput;
         runData.batch_script_format = batchTestForm?.batchScriptFormat || 'txt';
+      }
+
+      // If VibeVoice TTS is selected, map selected files to text_inputs (mapped text) and audio_map (text -> filename)
+      if (vibeInIsolated || vibeInChained) {
+        const selected = selectedVibeFiles || [];
+        if (selected.length > 0) {
+          const fileMap = Object.fromEntries((vibevoiceFiles || []).map((f) => [f.name, f]));
+          const pairs = selected.map((name) => {
+            const f = fileMap[name];
+            const text = (f && typeof f.text === 'string' && f.text.trim()) ? f.text.trim() : name;
+            return [text, name];
+          });
+          const mappedTexts = pairs.map(([text]) => text);
+          const audioMap = Object.fromEntries(pairs);
+          runData.text_inputs = [...(runData.text_inputs || []), ...mappedTexts];
+          runData.config = runData.config || {};
+          runData.config.models = runData.config.models || {};
+          runData.config.models.vibevoice = {
+            audio_map: audioMap,
+            audio_dir: 'storage/vibevoice'
+          };
+        }
       }
 
       const response = await fetch(`${API_BASE_URL}/api/runs`, {
@@ -297,7 +349,7 @@ function App() {
     </Card>
   );
 
-  const RunResultCard = ({ run, filters = { vendor: 'all', service: 'all', model: 'all' } }) => {
+  const RunResultCard = ({ run }) => {
     const [expanded, setExpanded] = useState(false);
 
     const classifyService = (item) => {
@@ -424,7 +476,7 @@ function App() {
       );
     };
 
-    const AudioControls = ({ item, uniqueUserCount = 0, onRatingUpdate, preferredService = null }) => {
+    const AudioControls = ({ item, uniqueUserCount = 0, onRatingUpdate }) => {
       const [playing, setPlaying] = useState(false);
       const [showTranscript, setShowTranscript] = useState(false);
       const [transcriptText, setTranscriptText] = useState('');
@@ -571,21 +623,6 @@ function App() {
         );
       };
 
-      const handleDeleteItem = async () => {
-        if (!window.confirm('Delete this test case? This cannot be undone.')) return;
-        try {
-          const resp = await fetch(`${API_BASE_URL}/api/run-items/${item.id}`, { method: 'DELETE' });
-          if (!resp.ok) {
-            const err = await resp.json().catch(() => ({ detail: 'Delete failed' }));
-            throw new Error(err.detail || 'Delete failed');
-          }
-          if (onRatingUpdate) onRatingUpdate();
-        } catch (e) {
-          console.error('Delete item failed', e);
-          alert(`Failed to delete: ${e.message}`);
-        }
-      };
-
       return (
         <div className="flex items-center space-x-2">
           {hasAudio && (
@@ -621,16 +658,6 @@ function App() {
                 </span>
               )}
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleDeleteItem}
-              className="text-red-700 border-red-200 hover:bg-red-50"
-              title="Delete this test case"
-            >
-              <Trash2 className="h-3 w-3 mr-1" />
-              Delete
-            </Button>
             {showTranscript && (
               <div className="ml-2 max-w-xl text-xs bg-white p-3 rounded border shadow-sm">
                 {getTranscriptDisplay()}
@@ -642,13 +669,12 @@ function App() {
             isOpen={showRatingModal} 
             onClose={() => setShowRatingModal(false)}
             onRatingUpdate={onRatingUpdate}
-            preferredService={preferredService}
           />
         </div>
       );
     };
 
-    const RatingModal = ({ item, isOpen, onClose, onRatingUpdate, preferredService = null }) => {
+    const RatingModal = ({ item, isOpen, onClose, onRatingUpdate }) => {
       const [subjectiveMetrics, setSubjectiveMetrics] = useState([]);
       const [userRatings, setUserRatings] = useState({});
       const [userName, setUserName] = useState('');
@@ -658,7 +684,7 @@ function App() {
       const [averageRatings, setAverageRatings] = useState({});
 
       const serviceType = classifyService(item);
-      const actualServiceType = preferredService || (serviceType === 'e2e' ? 'tts' : serviceType);
+      const actualServiceType = serviceType === 'e2e' ? 'tts' : serviceType;
 
       useEffect(() => {
         if (isOpen && actualServiceType !== 'unknown') {
@@ -713,6 +739,15 @@ function App() {
       };
 
       const handleSubmit = async () => {
+        if (!userName.trim()) {
+          alert('Please enter your name');
+          return;
+        }
+
+        // Check if all metrics have been rated
+        const missingRatings = subjectiveMetrics.filter(metric => !userRatings[metric.id]);
+        // Ratings are optional; proceed even if some metrics are unrated
+
         setLoading(true);
         try {
           const response = await fetch(`${API_BASE_URL}/api/user-ratings`, {
@@ -722,7 +757,7 @@ function App() {
             },
             body: JSON.stringify({
               run_item_id: item.id,
-              user_name: (userName || '').trim() || 'Anonymous',
+              user_name: userName.trim(),
               ratings: userRatings,
               comments: comments
             })
@@ -805,10 +840,14 @@ function App() {
                 </div>
               </div>
 
-              {/* Guidance note removed: metrics are optional */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-sm text-blue-800">
+                  <strong>Note:</strong> Ratings are optional. Please rate any metrics you want.
+                </div>
+              </div>
 
               <div className="mb-4">
-                <Label htmlFor="userName" className="text-sm font-medium">Your Name (optional)</Label>
+                <Label htmlFor="userName" className="text-sm font-medium">Your Name *</Label>
                 <Input
                   id="userName"
                   type="text"
@@ -821,7 +860,7 @@ function App() {
 
               <div className="space-y-6">
                 {subjectiveMetrics.map((metric) => (
-                  <div key={metric.id} className={`border rounded-lg p-4 border-gray-200`}>
+                  <div key={metric.id} className="border rounded-lg p-4 border-gray-200">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h3 className="font-medium text-gray-900">
@@ -869,8 +908,8 @@ function App() {
                   Cancel
                 </Button>
                 <Button 
-                  type="button"
-                  onClick={handleSubmit}
+                  onClick={handleSubmit} 
+                  disabled={loading || !userName.trim()}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   {loading ? (
@@ -958,7 +997,7 @@ function App() {
                 {item.status}
               </Badge>
             </div>
-            <AudioControls item={item} uniqueUserCount={uniqueUserCount} onRatingUpdate={fetchSubjectiveRatings} preferredService={preferredService} />
+            <AudioControls item={item} uniqueUserCount={uniqueUserCount} onRatingUpdate={fetchSubjectiveRatings} />
           </div>
         
         <div className="text-sm mb-3">
@@ -985,15 +1024,28 @@ function App() {
                 return { name, value };
               });
               
+              const serviceType = classifyService(item);
+              
               // Group metrics by type
-              const performanceMetrics = metrics.filter(m => 
-                ['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration'].includes(m.name)
+              let performanceMetrics = metrics.filter(m => 
+                ['ttfb', 'tts_ttfb', 'rtf', 'tts_rtf', 'stt_rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration'].includes(m.name)
               );
+              
+              if (serviceType === 'tts') {
+                performanceMetrics = performanceMetrics.filter(m => !m.name.startsWith('stt_'));
+              } else if (serviceType === 'stt') {
+                performanceMetrics = performanceMetrics.filter(m => !m.name.startsWith('tts_') && m.name !== 'ttfb');
+              }
+
               const qualityMetrics = metrics.filter(m => 
-                ['wer', 'bleu', 'rouge'].includes(m.name)
+                ['wer', 'bleu', 'rouge', 'confidence'].includes(m.name)
               );
+
+              const perfMetricNames = performanceMetrics.map(m => m.name);
+              const qualityMetricNames = qualityMetrics.map(m => m.name);
+
               const otherMetrics = metrics.filter(m => 
-                !['ttfb', 'rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration', 'wer', 'confidence', 'bleu', 'rouge'].includes(m.name)
+                !perfMetricNames.includes(m.name) && !qualityMetricNames.includes(m.name)
               );
               
               // Add subjective metrics
@@ -1091,32 +1143,6 @@ function App() {
               <div className="text-sm">
                 <span className="font-medium">{run.items?.length || 0}</span> tests
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="text-red-700 border-red-200 hover:bg-red-50"
-                title="Delete this run"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  (async () => {
-                    if (!window.confirm('Delete this entire run and all its items?')) return;
-                    try {
-                      const resp = await fetch(`${API_BASE_URL}/api/runs/${run.id}`, { method: 'DELETE' });
-                      if (!resp.ok) {
-                        const err = await resp.json().catch(() => ({ detail: 'Delete failed' }));
-                        throw new Error(err.detail || 'Delete failed');
-                      }
-                      await fetchRuns();
-                    } catch (e) {
-                      console.error('Delete run failed', e);
-                      alert(`Failed to delete run: ${e.message}`);
-                    }
-                  })();
-                }}
-              >
-                <Trash2 className="h-3 w-3 mr-1" />
-                Delete Run
-              </Button>
             </div>
           </div>
         </CardHeader>
@@ -1124,25 +1150,7 @@ function App() {
         {expanded && (
           <CardContent className="pt-0">
             {(() => {
-              const items = (run.items || []).filter((it) => {
-                const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
-                if (filters.service !== 'all') {
-                  if (filters.service === 'tts' && svc !== 'tts') return false;
-                  if (filters.service === 'stt' && svc !== 'stt') return false;
-                }
-                if (filters.vendor !== 'all' && String(it.vendor) !== String(filters.vendor)) return false;
-                if (filters.model !== 'all') {
-                  try {
-                    const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
-                    let modelName = null;
-                    if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
-                    else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
-                    else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
-                    if (String(modelName) !== String(filters.model)) return false;
-                  } catch (e) { return false; }
-                }
-                return true;
-              });
+              const items = run.items || [];
               const ttsItems = items.filter((it) => classifyService(it) === 'tts');
               const sttItems = items.filter((it) => {
                 const svc = classifyService(it);
@@ -1606,23 +1614,6 @@ function App() {
                           )}
                         </div>
                       )}
-                      {quickTestForm.vendors.includes('olm_asr') && (
-                        <div className="space-y-2">
-                          {quickTestForm.service === 'stt' && (
-                            <>
-                              <Label>OLMoASR STT Model</Label>
-                              <Select value={quickTestForm.models.olm_asr.stt_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, olm_asr: {...quickTestForm.models.olm_asr, stt_model: v}}})}>
-                                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="base">base</SelectItem>
-                                  <SelectItem value="small">small</SelectItem>
-                                  <SelectItem value="medium">medium</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
                   )}
 
@@ -1649,7 +1640,6 @@ function App() {
                             <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
                             <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (STT)</SelectItem>
-                            <SelectItem value="olm_asr">OLMoASR (STT)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1661,7 +1651,7 @@ function App() {
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai', 'olm_asr'].map((vendor) => (
+                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai'].map((vendor) => (
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
@@ -1865,19 +1855,37 @@ function App() {
                               )}
                             </div>
                           )}
-                          {batchTestForm?.vendors?.includes('olm_asr') && (
+                          {batchTestForm?.vendors?.includes('vibevoice') && (
                             <div className="space-y-2">
-                              {batchTestForm.service === 'stt' && (
+                              {batchTestForm.service === 'tts' && (
                                 <>
-                                  <Label>OLMoASR STT Model</Label>
-                                  <Select value={batchTestForm.models.olm_asr.stt_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, olm_asr: {...batchTestForm.models.olm_asr, stt_model: v}}})}>
-                                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="base">base</SelectItem>
-                                      <SelectItem value="small">small</SelectItem>
-                                      <SelectItem value="medium">medium</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                  <Label>VibeVoice Files</Label>
+                                  <div className="max-h-60 overflow-auto bg-white border rounded p-2">
+                                    {(vibevoiceFiles || []).length === 0 && (
+                                      <div className="text-xs text-gray-500">No files found in VibeVoice folder.</div>
+                                    )}
+                                    {(vibevoiceFiles || []).map((f) => (
+                                      <label key={f.name} className="flex items-center space-x-2 text-sm py-0.5">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedVibeFiles.includes(f.name)}
+                                          onChange={(e) => {
+                                            setSelectedVibeFiles((prev) => {
+                                              if (e.target.checked) return Array.from(new Set([...(prev || []), f.name]));
+                                              return (prev || []).filter((n) => n !== f.name);
+                                            });
+                                          }}
+                                          className="rounded border-gray-300"
+                                        />
+                                        <span className="truncate">{f.name}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                    <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles((vibevoiceFiles || []).map((f) => f.name))}>Select All</Button>
+                                    <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles([])}>Clear</Button>
+                                    <span className="ml-auto">{selectedVibeFiles.length} selected</span>
+                                  </div>
                                 </>
                               )}
                             </div>
@@ -1925,8 +1933,40 @@ function App() {
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
                             <SelectItem value="aws">AWS (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
+                            <SelectItem value="vibevoice">VibeVoice (pre-synth)</SelectItem>
                           </SelectContent>
                         </Select>
+                        {batchTestForm?.chain?.tts_vendor === 'vibevoice' && (
+                          <div className="mt-3 space-y-2">
+                            <Label>VibeVoice Files</Label>
+                            <div className="max-h-60 overflow-auto bg-white border rounded p-2">
+                              {(vibevoiceFiles || []).length === 0 && (
+                                <div className="text-xs text-gray-500">No files found in VibeVoice folder.</div>
+                              )}
+                              {(vibevoiceFiles || []).map((f) => (
+                                <label key={f.name} className="flex items-center space-x-2 text-sm py-0.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedVibeFiles.includes(f.name)}
+                                    onChange={(e) => {
+                                      setSelectedVibeFiles((prev) => {
+                                        if (e.target.checked) return Array.from(new Set([...(prev || []), f.name]));
+                                        return (prev || []).filter((n) => n !== f.name);
+                                      });
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <span className="truncate">{f.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles((vibevoiceFiles || []).map((f) => f.name))}>Select All</Button>
+                              <Button variant="outline" size="sm" onClick={() => setSelectedVibeFiles([])}>Clear</Button>
+                              <span className="ml-auto">{selectedVibeFiles.length} selected</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Chained: STT Vendor</Label>
@@ -1936,7 +1976,6 @@ function App() {
                             <SelectItem value="deepgram">Deepgram (STT)</SelectItem>
                             <SelectItem value="elevenlabs">ElevenLabs (STT)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (STT)</SelectItem>
-                            <SelectItem value="olm_asr">OLMoASR (STT)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1948,7 +1987,7 @@ function App() {
                     <div>
                       <Label>Vendors</Label>
                       <div className="mt-1 space-y-2">
-                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai', 'olm_asr'].map((vendor) => (
+                        {['elevenlabs', 'deepgram', 'aws', 'azure_openai', 'vibevoice'].map((vendor) => (
                           <label key={vendor} className="flex items-center space-x-2">
                             <input
                               type="checkbox"
@@ -2082,7 +2121,18 @@ function App() {
                     onClick={handleBatchTest} 
                     disabled={
                       loading ||
-                      !(batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim()) ||
+                      !(
+                        // Allow either pasted batch content
+                        (batchTestForm?.batchScriptInput && batchTestForm?.batchScriptInput.trim()) ||
+                        // Or VibeVoice selection when applicable
+                        (
+                          (
+                            (batchTestForm?.mode === 'isolated' && batchTestForm?.service === 'tts' && (batchTestForm?.vendors || []).includes('vibevoice')) ||
+                            (batchTestForm?.mode === 'chained' && batchTestForm?.chain?.tts_vendor === 'vibevoice')
+                          ) &&
+                          (selectedVibeFiles?.length || 0) > 0
+                        )
+                      ) ||
                       (batchTestForm?.mode === 'isolated' && (!batchTestForm?.vendors || batchTestForm.vendors.length === 0))
                     }
                     className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
@@ -2127,74 +2177,6 @@ function App() {
                   <div className="text-sm text-gray-600">Latest test runs and their performance</div>
                   <ExportToolbar runs={runs} />
                 </div>
-
-                {(() => {
-                  const allVendors = useMemo(() => {
-                    const s = new Set();
-                    (runs || []).forEach(run => {
-                      (run.items || []).forEach(it => s.add(it.vendor));
-                    });
-                    return Array.from(s);
-                  }, [runs]);
-                  const allModels = useMemo(() => {
-                    const s = new Set();
-                    (runs || []).forEach(run => {
-                      (run.items || []).forEach(it => {
-                        try {
-                          const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
-                          const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
-                          let modelName = null;
-                          if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
-                          else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
-                          else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
-                          if (modelName) s.add(modelName);
-                        } catch (e) {}
-                      });
-                    });
-                    return Array.from(s);
-                  }, [runs]);
-
-                  return (
-                    <div className="flex flex-wrap items-end gap-3 mb-4">
-                      <div>
-                        <Label className="text-xs">Use Case</Label>
-                        <Select value={filters.service} onValueChange={(v) => setFilters({ ...filters, service: v })}>
-                          <SelectTrigger className="mt-1 w-[160px]"><SelectValue placeholder="All" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="tts">TTS</SelectItem>
-                            <SelectItem value="stt">STT</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Vendor</Label>
-                        <Select value={filters.vendor} onValueChange={(v) => setFilters({ ...filters, vendor: v })}>
-                          <SelectTrigger className="mt-1 w-[180px]"><SelectValue placeholder="All" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            {allVendors.map(v => (
-                              <SelectItem key={v} value={v}>{String(v)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Model</Label>
-                        <Select value={filters.model} onValueChange={(v) => setFilters({ ...filters, model: v })}>
-                          <SelectTrigger className="mt-1 w-[220px]"><SelectValue placeholder="All" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            {allModels.map(m => (
-                              <SelectItem key={m} value={m}>{String(m)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  );
-                })()}
-
                 {runs.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -2203,31 +2185,9 @@ function App() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {(() => {
-                      const matches = (it) => {
-                        const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
-                        if (filters.service !== 'all') {
-                          if (filters.service === 'tts' && svc !== 'tts') return false;
-                          if (filters.service === 'stt' && svc !== 'stt') return false;
-                        }
-                        if (filters.vendor !== 'all' && String(it.vendor) !== String(filters.vendor)) return false;
-                        if (filters.model !== 'all') {
-                          try {
-                            const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
-                            let modelName = null;
-                            if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
-                            else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
-                            else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
-                            if (String(modelName) !== String(filters.model)) return false;
-                          } catch (e) { return false; }
-                        }
-                        return true;
-                      };
-                      const filtered = runs.filter(run => (run.items || []).some(matches));
-                      return filtered.map((run) => (
-                        <RunResultCard key={run.id} run={run} filters={filters} />
-                      ));
-                    })()}
+                    {runs.map((run) => (
+                      <RunResultCard key={run.id} run={run} />
+                    ))}
                   </div>
                 )}
               </CardContent>

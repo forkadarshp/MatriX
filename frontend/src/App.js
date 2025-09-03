@@ -712,19 +712,6 @@ function App() {
       };
 
       const handleSubmit = async () => {
-        if (!userName.trim()) {
-          alert('Please enter your name');
-          return;
-        }
-
-        // Check if all metrics have been rated
-        const missingRatings = subjectiveMetrics.filter(metric => !userRatings[metric.id]);
-        if (missingRatings.length > 0) {
-          const missingNames = missingRatings.map(metric => metric.name).join(', ');
-          alert(`Please rate all metrics. Missing ratings for: ${missingNames}`);
-          return;
-        }
-
         setLoading(true);
         try {
           const response = await fetch(`${API_BASE_URL}/api/user-ratings`, {
@@ -734,7 +721,7 @@ function App() {
             },
             body: JSON.stringify({
               run_item_id: item.id,
-              user_name: userName.trim(),
+              user_name: (userName || '').trim() || 'Anonymous',
               ratings: userRatings,
               comments: comments
             })
@@ -817,14 +804,10 @@ function App() {
                 </div>
               </div>
 
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="text-sm text-blue-800">
-                  <strong>Note:</strong> All metrics below are required. Please rate every aspect before submitting.
-                </div>
-              </div>
+              {/* Guidance note removed: metrics are optional */}
 
               <div className="mb-4">
-                <Label htmlFor="userName" className="text-sm font-medium">Your Name *</Label>
+                <Label htmlFor="userName" className="text-sm font-medium">Your Name (optional)</Label>
                 <Input
                   id="userName"
                   type="text"
@@ -837,12 +820,11 @@ function App() {
 
               <div className="space-y-6">
                 {subjectiveMetrics.map((metric) => (
-                  <div key={metric.id} className={`border rounded-lg p-4 ${!userRatings[metric.id] ? 'border-red-200 bg-red-50/50' : 'border-gray-200'}`}>
+                  <div key={metric.id} className={`border rounded-lg p-4 border-gray-200`}>
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h3 className="font-medium text-gray-900">
                           {metric.name}
-                          <span className="text-red-500 ml-1">*</span>
                         </h3>
                         <p className="text-sm text-gray-600 mt-1">{metric.description}</p>
                         {averageRatings[metric.id] && (
@@ -886,8 +868,8 @@ function App() {
                   Cancel
                 </Button>
                 <Button 
-                  onClick={handleSubmit} 
-                  disabled={loading || !userName.trim() || subjectiveMetrics.some(metric => !userRatings[metric.id])}
+                  type="button"
+                  onClick={handleSubmit}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   {loading ? (

@@ -18,6 +18,8 @@ async def export_results(payload: Dict[str, Any]):
     fmt = (payload or {}).get("format", "csv").lower()
     run_item_ids: Optional[List[str]] = (payload or {}).get("run_item_ids")
     export_all: bool = bool((payload or {}).get("all"))
+    # Hide WER values above this threshold from exports (keep rows but omit WER)
+    HIDE_WER_THRESHOLD = 0.2
     conn = get_db_connection()
     conn.row_factory = dict_factory
     cursor = conn.cursor()
@@ -94,6 +96,13 @@ async def export_results(payload: Dict[str, Any]):
                 service = "STT"
             elif "tts_latency" in metrics_map:
                 service = "TTS"
+            # Determine displayed WER respecting the threshold
+            wer_value = metrics_map.get("wer")
+            try:
+                wer_hide = (wer_value is not None) and (float(wer_value) > HIDE_WER_THRESHOLD)
+            except Exception:
+                wer_hide = False
+            wer_display = None if wer_hide else wer_value
             row_data = {
                 "result_id": row.get("result_id"),
                 "metric_type": row.get("metric_type"),
@@ -105,7 +114,8 @@ async def export_results(payload: Dict[str, Any]):
                 "vendor": row.get("vendor"),
                 "service": service,
                 "transcript": row.get("transcript"),
-                "wer": metrics_map.get("wer"),
+                # Hide WER if above threshold; keep column but omit value
+                "wer": wer_display,
                 "e2e_latency": metrics_map.get("e2e_latency"),
                 "tts_latency": metrics_map.get("tts_latency"),
                 "stt_latency": metrics_map.get("stt_latency"),
@@ -205,7 +215,22 @@ async def export_results(payload: Dict[str, Any]):
                         count = r.get(count_key, 0)
                         subj_ratings.append(f"{metric_name}: {value}/5 ({count})")
                 subj_str = " | ".join(subj_ratings) if subj_ratings else "No ratings"
-                line1 = f"{r['started_at']} | {r['mode']} | {r['vendor']} | {r['service']} | WER: {r.get('wer')} | E2E: {r.get('e2e_latency')}s | TTS: {r.get('tts_latency')}s | STT: {r.get('stt_latency')}s"
+                # Build metrics line, omitting WER if hidden
+                parts = [
+                    f"{r['started_at']}",
+                    f"{r['mode']}",
+                    f"{r['vendor']}",
+                    f"{r['service']}"
+                ]
+                if r.get('wer') is not None:
+                    parts.append(f"WER: {r.get('wer')}")
+                if r.get('e2e_latency') is not None:
+                    parts.append(f"E2E: {r.get('e2e_latency')}s")
+                if r.get('tts_latency') is not None:
+                    parts.append(f"TTS: {r.get('tts_latency')}s")
+                if r.get('stt_latency') is not None:
+                    parts.append(f"STT: {r.get('stt_latency')}s")
+                line1 = " | ".join(parts)
                 line2 = f"User Ratings: {subj_str}"
                 for chunk in [line1[i:i+110] for i in range(0, len(line1), 110)]:
                     c.drawString(x_margin, y, chunk)

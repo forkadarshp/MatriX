@@ -388,6 +388,10 @@ function App() {
       };
       
       if (name === 'wer') {
+        // Hide WER values greater than 20% in the UI
+        if (!isNaN(num) && num > 0.2) {
+          return null;
+        }
         const percentage = (num * 100).toFixed(1);
         const color = num <= 0.1 ? 'bg-green-100 text-green-800 border-green-200' : 
                      num <= 0.3 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 
@@ -1303,7 +1307,9 @@ function App() {
                             <div className="font-medium">TTS: {p.tts_vendor} • STT: {p.stt_vendor}</div>
                             <div className="text-xs text-gray-500">{p.tests} tests</div>
                           </div>
-                          <Badge variant="outline">avg WER: {(p.avg_wer * 100).toFixed(1)}%</Badge>
+                          <Badge variant="outline">
+                            {p.avg_wer > 0.2 ? 'avg WER: —' : `avg WER: ${(p.avg_wer * 100).toFixed(1)}%`}
+                          </Badge>
                         </div>
                       ))}
                       {(insights.top_vendor_pairings || []).length === 0 && (

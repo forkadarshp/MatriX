@@ -424,7 +424,7 @@ function App() {
       );
     };
 
-    const AudioControls = ({ item, uniqueUserCount = 0, onRatingUpdate }) => {
+    const AudioControls = ({ item, uniqueUserCount = 0, onRatingUpdate, preferredService = null }) => {
       const [playing, setPlaying] = useState(false);
       const [showTranscript, setShowTranscript] = useState(false);
       const [transcriptText, setTranscriptText] = useState('');
@@ -642,12 +642,13 @@ function App() {
             isOpen={showRatingModal} 
             onClose={() => setShowRatingModal(false)}
             onRatingUpdate={onRatingUpdate}
+            preferredService={preferredService}
           />
         </div>
       );
     };
 
-    const RatingModal = ({ item, isOpen, onClose, onRatingUpdate }) => {
+    const RatingModal = ({ item, isOpen, onClose, onRatingUpdate, preferredService = null }) => {
       const [subjectiveMetrics, setSubjectiveMetrics] = useState([]);
       const [userRatings, setUserRatings] = useState({});
       const [userName, setUserName] = useState('');
@@ -657,7 +658,7 @@ function App() {
       const [averageRatings, setAverageRatings] = useState({});
 
       const serviceType = classifyService(item);
-      const actualServiceType = serviceType === 'e2e' ? 'tts' : serviceType;
+      const actualServiceType = preferredService || (serviceType === 'e2e' ? 'tts' : serviceType);
 
       useEffect(() => {
         if (isOpen && actualServiceType !== 'unknown') {
@@ -957,7 +958,7 @@ function App() {
                 {item.status}
               </Badge>
             </div>
-            <AudioControls item={item} uniqueUserCount={uniqueUserCount} onRatingUpdate={fetchSubjectiveRatings} />
+            <AudioControls item={item} uniqueUserCount={uniqueUserCount} onRatingUpdate={fetchSubjectiveRatings} preferredService={preferredService} />
           </div>
         
         <div className="text-sm mb-3">

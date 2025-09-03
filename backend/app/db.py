@@ -21,6 +21,42 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
                     logger.info("DB migration: added run_items.metric_type")
         except Exception as e:
             logger.error(f"DB migration (run_items columns) failed: {e}")
+        # Ensure Noise Handling is categorized under STT
+        try:
+            # Normalize Noise Handling metric id/name and service_type to STT
+            cursor.execute("DELETE FROM subjective_metrics WHERE name = 'Noise Handling' AND service_type <> 'stt'")
+            cursor.execute("DELETE FROM subjective_metrics WHERE id = 'tts_noise_handling'")
+            cursor.execute(
+                """
+                DELETE FROM subjective_metrics
+                WHERE name = 'Noise Handling' AND service_type = 'stt' AND rowid NOT IN (
+                    SELECT MIN(rowid) FROM subjective_metrics WHERE name = 'Noise Handling' AND service_type = 'stt'
+                )
+                """
+            )
+            cursor.execute(
+                """
+                UPDATE subjective_metrics
+                SET id = 'stt_noise_handling', name = 'Noise Handling', service_type = 'stt'
+                WHERE name = 'Noise Handling' AND service_type = 'stt'
+                """
+            )
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO subjective_metrics (id, name, description, service_type, scale_min, scale_max)
+                VALUES ('stt_noise_handling', 'Noise Handling', 'How well does the system handle or avoid background noise and artifacts?', 'stt', 1, 5)
+                """
+            )
+            # Fix legacy typo: "Pronouncy Accuracy" -> "Pronunciation Accuracy"
+            cursor.execute(
+                """
+                UPDATE subjective_metrics
+                SET name = 'Pronunciation Accuracy'
+                WHERE id = 'tts_pronouncy' OR LOWER(name) = 'pronouncy accuracy'
+                """
+            )
+        except Exception as e:
+            logger.error(f"DB migration (normalize noise handling) failed: {e}")
         conn.commit()
     except Exception as e:
         logger.error(f"DB migration failed: {e}")
@@ -155,6 +191,12 @@ def init_database() -> None:
         ('tts_disfluency', 'Disfluency Handling', 'How well does the system handle pauses, hesitations, and speech disfluencies?', 'tts', 1, 5),
         ('tts_context', 'Context Awareness', 'How well does the speech reflect the context and meaning of the text?', 'tts', 1, 5),
         ('tts_prosody', 'Prosody Accuracy', 'How accurate are the rhythm, stress, and intonation patterns?', 'tts', 1, 5);
+
+        INSERT OR IGNORE INTO subjective_metrics (id, name, description, service_type, scale_min, scale_max) VALUES 
+        ('tts_pronouncy', 'Pronunciation Accuracy', 'How accurate and clear is the pronunciation of words and phonemes?', 'tts', 1, 5);
+
+        INSERT OR IGNORE INTO subjective_metrics (id, name, description, service_type, scale_min, scale_max) VALUES 
+        ('stt_noise_handling', 'Noise Handling', 'How well does the system handle or avoid background noise and artifacts?', 'stt', 1, 5);
 
         INSERT OR IGNORE INTO subjective_metrics (id, name, description, service_type, scale_min, scale_max) VALUES 
         ('stt_disfluency', 'Disfluency Recognition', 'How well does the system recognize and handle speech disfluencies?', 'stt', 1, 5),

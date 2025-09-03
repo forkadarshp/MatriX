@@ -1027,6 +1027,11 @@ function App() {
                 const [name, value] = metric.split(':');
                 return { name, value };
               });
+
+              // Parse audio_duration to gate latency badges later
+              const audioDurationEntry = metrics.find(m => m.name === 'audio_duration');
+              const audioDurationNum = audioDurationEntry ? parseFloat(audioDurationEntry.value) : NaN;
+              const hideLatency = !isNaN(audioDurationNum) && audioDurationNum > 15.0;
               
               const serviceType = classifyService(item);
               
@@ -1034,6 +1039,11 @@ function App() {
               let performanceMetrics = metrics.filter(m => 
                 ['ttfb', 'tts_ttfb', 'rtf', 'tts_rtf', 'stt_rtf', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency', 'audio_duration'].includes(m.name)
               );
+
+              // If audio is too long, remove latency-related metrics from display
+              if (hideLatency) {
+                performanceMetrics = performanceMetrics.filter(m => !['ttfb', 'tts_ttfb', 'latency', 'tts_latency', 'stt_latency', 'e2e_latency'].includes(m.name));
+              }
               
               if (serviceType === 'tts') {
                 performanceMetrics = performanceMetrics.filter(m => !m.name.startsWith('stt_'));

@@ -20,6 +20,8 @@ async def export_results(payload: Dict[str, Any]):
     export_all: bool = bool((payload or {}).get("all"))
     # Hide WER values above this threshold from exports (keep rows but omit WER)
     HIDE_WER_THRESHOLD = 0.2
+    # Hide latency metrics if audio duration exceeds this many seconds
+    HIDE_LATENCY_AUDIO_DURATION_S = 15.0
     conn = get_db_connection()
     conn.row_factory = dict_factory
     cursor = conn.cursor()
@@ -103,6 +105,13 @@ async def export_results(payload: Dict[str, Any]):
             except Exception:
                 wer_hide = False
             wer_display = None if wer_hide else wer_value
+
+            # Determine whether to hide latency metrics based on audio duration
+            audio_duration_value = metrics_map.get("audio_duration")
+            try:
+                hide_latency = (audio_duration_value is not None) and (float(audio_duration_value) > HIDE_LATENCY_AUDIO_DURATION_S)
+            except Exception:
+                hide_latency = False
             row_data = {
                 "result_id": row.get("result_id"),
                 "metric_type": row.get("metric_type"),
@@ -116,11 +125,12 @@ async def export_results(payload: Dict[str, Any]):
                 "transcript": row.get("transcript"),
                 # Hide WER if above threshold; keep column but omit value
                 "wer": wer_display,
-                "e2e_latency": metrics_map.get("e2e_latency"),
-                "tts_latency": metrics_map.get("tts_latency"),
-                "stt_latency": metrics_map.get("stt_latency"),
-                "tts_ttfb": metrics_map.get("tts_ttfb"),
-                "audio_duration": metrics_map.get("audio_duration"),
+                # Hide latency metrics if audio is too long
+                "e2e_latency": None if hide_latency else metrics_map.get("e2e_latency"),
+                "tts_latency": None if hide_latency else metrics_map.get("tts_latency"),
+                "stt_latency": None if hide_latency else metrics_map.get("stt_latency"),
+                "tts_ttfb": None if hide_latency else metrics_map.get("tts_ttfb"),
+                "audio_duration": audio_duration_value,
                 "tts_rtf": metrics_map.get("tts_rtf"),
                 "stt_rtf": metrics_map.get("stt_rtf"),
                 "audio_path": row.get("audio_path"),

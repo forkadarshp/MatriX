@@ -91,13 +91,24 @@ async def export_results(payload: Dict[str, Any]):
                     subjective_ratings[f"subj_{rating_name}_count"] = rating_count
             except Exception:
                 pass
-            service = "UNKNOWN"
-            if "e2e_latency" in metrics_map:
-                service = "E2E"
-            elif ("stt_latency" in metrics_map) or ("wer" in metrics_map):
-                service = "STT"
-            elif "tts_latency" in metrics_map:
-                service = "TTS"
+            # Determine service type, preferring stored metadata over inference
+            service_type_meta = None
+            try:
+                service_type_meta = (json.loads(row.get("metrics_json") or "{}") or {}).get("service_type")
+            except Exception:
+                service_type_meta = None
+            if service_type_meta:
+                st_lower = str(service_type_meta).lower()
+                service = "E2E" if st_lower == "e2e" else ("TTS" if st_lower == "tts" else ("STT" if st_lower == "stt" else "UNKNOWN"))
+            else:
+                # Fallback inference based on available metrics
+                service = "UNKNOWN"
+                if "e2e_latency" in metrics_map:
+                    service = "E2E"
+                elif "tts_latency" in metrics_map:
+                    service = "TTS"
+                elif ("stt_latency" in metrics_map) or ("wer" in metrics_map):
+                    service = "STT"
             # Determine displayed WER respecting the threshold
             wer_value = metrics_map.get("wer")
             try:

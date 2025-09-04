@@ -215,8 +215,29 @@ const RadarChart = ({ title, data, color = '#3b82f6' }) => {
 };
 
 const SideBySideBars = ({ title, metricName, rows, unit }) => {
-  // Sort rows by normalized value (higher is better for display)
-  const sortedRows = [...rows].sort((a, b) => b.normValue - a.normValue);
+  // For objective metrics, lower values are better, so sort by raw value (ascending)
+  // For subjective metrics, higher values are better, so sort by raw value (descending)
+  const isObjectiveMetric = ['WER', 'FTTB', 'RTF', 'Total synthesis time'].includes(metricName);
+  const sortedRows = [...rows].sort((a, b) => {
+    if (isObjectiveMetric) {
+      return a.rawValue - b.rawValue; // Lower values first (better performance)
+    } else {
+      return b.rawValue - a.rawValue; // Higher values first (better performance)
+    }
+  });
+
+  // Calculate bar widths based on absolute raw values
+  // Bar width is directly proportional to the absolute value of the metric
+  const calculateBarWidth = (row, allRows) => {
+    const values = allRows.map(r => Math.abs(r.rawValue));
+    const maxValue = Math.max(...values);
+    
+    if (maxValue === 0) return 50; // All values are zero
+    
+    // Absolute ratio: bar width is directly proportional to the absolute value
+    const absoluteRatio = Math.abs(row.rawValue) / maxValue;
+    return Math.max(5, absoluteRatio * 100); // Minimum 5% width, maximum 100%
+  };
   
   return (
     <div className="p-3 border rounded bg-white">
@@ -244,10 +265,11 @@ const SideBySideBars = ({ title, metricName, rows, unit }) => {
               <div 
                 className="h-3 rounded transition-all duration-300" 
                 style={{ 
-                  width: `${Math.round(r.normValue * 100)}%`, 
+                  width: `${calculateBarWidth(r, sortedRows)}%`, 
                   background: r.color,
                   opacity: 0.8 + (0.2 * (1 - index * 0.2)) // Slight opacity variation for ranking
                 }} 
+                title={`${r.label}: ${r.rawValue}${unit ? ` ${unit}` : ''} (${isObjectiveMetric ? 'lower is better' : 'higher is better'})`}
               />
             </div>
           </div>
@@ -282,10 +304,33 @@ const HeatMap = ({ title, vendors, metrics, values, useCase }) => {
                   <td className="p-2 font-medium text-gray-700">{v}</td>
                   {metrics.map((m) => {
                     const val = clamp01(values[v]?.[m] ?? 0);
-                    const color = toRGBA(baseColor, 0.2 + 0.6 * val);
+                    
+                    // Create more distinct color gradients based on performance
+                    let backgroundColor;
+                    if (val >= 0.8) {
+                      // Excellent performance - Dark green/blue
+                      backgroundColor = useCase === 'tts' ? '#065f46' : '#1e3a8a'; // Dark green/blue
+                    } else if (val >= 0.6) {
+                      // Good performance - Medium green/blue
+                      backgroundColor = useCase === 'tts' ? '#059669' : '#2563eb'; // Medium green/blue
+                    } else if (val >= 0.4) {
+                      // Average performance - Light green/blue
+                      backgroundColor = useCase === 'tts' ? '#10b981' : '#3b82f6'; // Light green/blue
+                    } else if (val >= 0.2) {
+                      // Poor performance - Yellow/orange
+                      backgroundColor = '#f59e0b'; // Orange
+                    } else {
+                      // Very poor performance - Red
+                      backgroundColor = '#ef4444'; // Red
+                    }
+                    
                     return (
                       <td key={m} className="p-2">
-                        <div className="h-6 rounded" style={{ background: color }} title={`${(val * 100).toFixed(0)}%`} />
+                        <div 
+                          className="h-6 rounded border border-gray-200" 
+                          style={{ backgroundColor }} 
+                          title={`${v} - ${m}: ${(val * 100).toFixed(0)}%`} 
+                        />
                       </td>
                     );
                   })}
@@ -336,7 +381,6 @@ export default function DashboardMock() {
       rows: ttsData.map(({ vendor, model, objective }) => ({
         label: `${vendor} • ${model}`,
         rawValue: objective[metric],
-        normValue: normalizeObjective('tts', metric, objective[metric]),
         color: VENDOR_COLOR[vendor] || '#3b82f6',
       }))
     }));
@@ -348,7 +392,6 @@ export default function DashboardMock() {
       rows: sttData.map(({ vendor, model, objective }) => ({
         label: `${vendor} • ${model}`,
         rawValue: objective[metric],
-        normValue: normalizeObjective('stt', metric, objective[metric]),
         color: VENDOR_COLOR[vendor] || '#3b82f6',
       }))
     }));

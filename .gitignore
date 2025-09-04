@@ -78,6 +78,3 @@ agenthub/agents/youtube/db
 
 # Mobile development
 android-sdk/ 
-
-backend/storage/audio
-backend/storage/transcripts

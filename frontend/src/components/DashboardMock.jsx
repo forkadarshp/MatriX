@@ -74,22 +74,22 @@ function generateMockForVendor(useCase, { vendor, model }) {
   if (useCase === 'tts') {
     if (vendor === 'ElevenLabs') {
       // Bias ElevenLabs to win TTS - best values
-      objective['WER'] = 0.048;  // Lower WER (4.8%)
-      objective['FTTB'] = 260;    // Lower FTTB (260ms)
-      objective['RTF'] = 0.25;    // Lower RTF (0.25x)
-      objective['Total synthesis time'] = 1.2; // Lower time (1.2s)
+      objective['WER'] = 0.075;  // Lower WER (4.8%)
+      objective['FTTB'] = 0.61;    // Lower FTTB (260ms)
+      objective['RTF'] = 0.21;    // Lower RTF (0.25x)
+      objective['Total synthesis time'] = 0.64; // Lower time (1.2s)
     } else if (vendor === 'Deepgram') {
       // Second best for TTS
-      objective['WER'] = 0.055;
-      objective['FTTB'] = 320;
-      objective['RTF'] = 0.45;
-      objective['Total synthesis time'] = 1.8;
+      objective['WER'] = 0.062;
+      objective['FTTB'] = 1.13;
+      objective['RTF'] = 0.73;
+      objective['Total synthesis time'] = 3.28;
     } else if (vendor === 'Vibe Voice') {
       // Third best for TTS
-      objective['WER'] = 0.062;
-      objective['FTTB'] = 380;
-      objective['RTF'] = 0.65;
-      objective['Total synthesis time'] = 2.2;
+      objective['WER'] = 0.080;
+      objective['FTTB'] = 2.5; // assuming 2.5ms
+      objective['RTF'] = 3.27;
+      objective['Total synthesis time'] = 15.10;
     } else {
       // AWS Polly - fourth for TTS
       objective['WER'] = 0.070;
@@ -100,14 +100,14 @@ function generateMockForVendor(useCase, { vendor, model }) {
   } else {
     if (vendor === 'Deepgram') {
       // Bias Deepgram to win STT - best values
-      objective['WER'] = 0.046;  // Lower WER (4.6%)
-      objective['RTF'] = 0.32;    // Lower RTF (0.32x)
-      objective['Total synthesis time'] = 1.1; // Lower time (1.1s)
+      objective['WER'] = 0.083;  // Lower WER (4.6%)
+      objective['RTF'] = 0.56;    // Lower RTF (0.32x)
+      objective['Total synthesis time'] = 2.45; // Lower time (1.1s)
     } else if (vendor === 'ElevenLabs') {
       // Second best for STT
-      objective['WER'] = 0.054;
-      objective['RTF'] = 0.48;
-      objective['Total synthesis time'] = 1.6;
+      objective['WER'] = 0.047;
+      objective['RTF'] = 0.25;
+      objective['Total synthesis time'] = 1.04;
     } else if (vendor === 'OpenAI') {
       // Third best for STT
       objective['WER'] = 0.061;
@@ -115,9 +115,9 @@ function generateMockForVendor(useCase, { vendor, model }) {
       objective['Total synthesis time'] = 2.0;
     } else {
       // OLMoASR - fourth for STT
-      objective['WER'] = 0.068;
-      objective['RTF'] = 0.78;
-      objective['Total synthesis time'] = 2.6;
+      objective['WER'] = 0.088;
+      objective['RTF'] = 2.96;
+      objective['Total synthesis time'] = 9.71;
     }
   }
 

@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 
 // Helpers
-const clamp01 = (v) => Math.max(0, Math.min(1, v));
-const rand = (min, max) => min + Math.random() * (max - min);
+const clamp01 = (value) => Math.min(1, Math.max(0, value));
 
 // Mock config per requirements
 const TTS_VENDORS = [
@@ -47,12 +46,12 @@ const toRGBA = (hex, alpha) => {
 // Normalization (all to 0..1 higher is better)
 function normalizeObjective(useCase, name, value) {
   if (name === 'WER') {
-    // lower is better; expected ~0.05-0.07, normalize against 0..0.1
+    // lower is better; expected ~0.045-0.075, normalize against 0..0.1
     return clamp01(1 - (value / 0.1));
   }
   if (name === 'FTTB') {
-    // lower is better; baseline 0.8s, clip 0..2s
-    return clamp01(1 - (value / 2));
+    // lower is better; baseline 250-450ms, clip 0..1000ms
+    return clamp01(1 - (value / 1000));
   }
   if (name === 'RTF') {
     // lower is better; target < 1.0; clip 0..2
@@ -74,27 +73,51 @@ function generateMockForVendor(useCase, { vendor, model }) {
   const objective = {};
   if (useCase === 'tts') {
     if (vendor === 'ElevenLabs') {
-      // Bias ElevenLabs to win TTS
-      objective['WER'] = rand(0.045, 0.055);  // Lower WER
-      objective['FTTB'] = rand(0.6, 0.7);     // Lower FTTB
-      objective['RTF'] = rand(0.2, 0.4);      // Lower RTF
-      objective['Total synthesis time'] = rand(1.0, 1.5); // Lower time
+      // Bias ElevenLabs to win TTS - best values
+      objective['WER'] = 0.048;  // Lower WER (4.8%)
+      objective['FTTB'] = 260;    // Lower FTTB (260ms)
+      objective['RTF'] = 0.25;    // Lower RTF (0.25x)
+      objective['Total synthesis time'] = 1.2; // Lower time (1.2s)
+    } else if (vendor === 'Deepgram') {
+      // Second best for TTS
+      objective['WER'] = 0.055;
+      objective['FTTB'] = 320;
+      objective['RTF'] = 0.45;
+      objective['Total synthesis time'] = 1.8;
+    } else if (vendor === 'Vibe Voice') {
+      // Third best for TTS
+      objective['WER'] = 0.062;
+      objective['FTTB'] = 380;
+      objective['RTF'] = 0.65;
+      objective['Total synthesis time'] = 2.2;
     } else {
-      objective['WER'] = rand(0.055, 0.075);
-      objective['FTTB'] = rand(0.7, 0.9);
-      objective['RTF'] = rand(0.4, 0.9);
-      objective['Total synthesis time'] = rand(1.5, 3.0);
+      // AWS Polly - fourth for TTS
+      objective['WER'] = 0.070;
+      objective['FTTB'] = 420;
+      objective['RTF'] = 0.85;
+      objective['Total synthesis time'] = 2.8;
     }
   } else {
     if (vendor === 'Deepgram') {
-      // Bias Deepgram to win STT
-      objective['WER'] = rand(0.045, 0.055);  // Lower WER
-      objective['RTF'] = rand(0.3, 0.5);      // Lower RTF
-      objective['Total synthesis time'] = rand(1.0, 1.5); // Lower time
+      // Bias Deepgram to win STT - best values
+      objective['WER'] = 0.046;  // Lower WER (4.6%)
+      objective['RTF'] = 0.32;    // Lower RTF (0.32x)
+      objective['Total synthesis time'] = 1.1; // Lower time (1.1s)
+    } else if (vendor === 'ElevenLabs') {
+      // Second best for STT
+      objective['WER'] = 0.054;
+      objective['RTF'] = 0.48;
+      objective['Total synthesis time'] = 1.6;
+    } else if (vendor === 'OpenAI') {
+      // Third best for STT
+      objective['WER'] = 0.061;
+      objective['RTF'] = 0.62;
+      objective['Total synthesis time'] = 2.0;
     } else {
-      objective['WER'] = rand(0.055, 0.075);
-      objective['RTF'] = rand(0.5, 0.9);
-      objective['Total synthesis time'] = rand(1.5, 3.0);
+      // OLMoASR - fourth for STT
+      objective['WER'] = 0.068;
+      objective['RTF'] = 0.78;
+      objective['Total synthesis time'] = 2.6;
     }
   }
 
@@ -102,23 +125,39 @@ function generateMockForVendor(useCase, { vendor, model }) {
   const subjList = useCase === 'tts' ? TTS_SUBJECTIVE : STT_SUBJECTIVE;
   subjList.forEach((k) => {
     if (useCase === 'tts' && vendor === 'ElevenLabs') {
-      // Bias ElevenLabs TTS subjective
-      subjective[k] = rand(4.2, 5.0);
+      // Bias ElevenLabs TTS subjective - best values
+      subjective[k] = 4.8;
+    } else if (useCase === 'tts' && vendor === 'Deepgram') {
+      // Second best TTS subjective
+      subjective[k] = 4.5;
+    } else if (useCase === 'tts' && vendor === 'Vibe Voice') {
+      // Third best TTS subjective
+      subjective[k] = 4.1;
+    } else if (useCase === 'tts' && vendor === 'AWS') {
+      // Fourth best TTS subjective
+      subjective[k] = 3.8;
     } else if (useCase === 'stt' && vendor === 'Deepgram') {
-      // Bias Deepgram STT subjective
-      subjective[k] = rand(4.2, 5.0);
+      // Bias Deepgram STT subjective - best values
+      subjective[k] = 4.7;
+    } else if (useCase === 'stt' && vendor === 'ElevenLabs') {
+      // Second best STT subjective
+      subjective[k] = 4.3;
+    } else if (useCase === 'stt' && vendor === 'OpenAI') {
+      // Third best STT subjective
+      subjective[k] = 3.9;
     } else {
-      subjective[k] = rand(3.0, 4.5);
+      // OLMoASR - fourth best STT subjective
+      subjective[k] = 3.5;
     }
   });
 
   return { vendor, model, objective, subjective };
 }
 
-function computeRadarPoints(metrics, size = 280) {
+function computeRadarPoints(metrics, size = 300) {
   const keys = Object.keys(metrics);
   const center = { x: size / 2, y: size / 2 };
-  const radius = size / 2 - 25;
+  const radius = size / 2 - 50; // Increased margin for text labels
   const angleStep = (2 * Math.PI) / keys.length;
   const points = keys.map((k, i) => {
     const value = clamp01(metrics[k]);
@@ -130,7 +169,7 @@ function computeRadarPoints(metrics, size = 280) {
 }
 
 const RadarChart = ({ title, data, color = '#3b82f6' }) => {
-  const size = 300;
+  const size = 280;
   const normalized = useMemo(() => {
     const res = {};
     Object.entries(data).forEach(([k, v]) => (res[k] = clamp01(v)));
@@ -140,41 +179,76 @@ const RadarChart = ({ title, data, color = '#3b82f6' }) => {
   const polygon = points.map((p) => p.join(',')).join(' ');
 
   return (
-    <div className="p-3 border rounded bg-white">
-      <div className="text-sm font-medium mb-2">{title}</div>
-      <svg width={size} height={size} className="mx-auto block">
-        <circle cx={center.x} cy={center.y} r={radius} fill="none" stroke="#e5e7eb" />
-        <circle cx={center.x} cy={center.y} r={radius * 0.66} fill="none" stroke="#f3f4f6" />
-        <circle cx={center.x} cy={center.y} r={radius * 0.33} fill="none" stroke="#f9fafb" />
-        {points.map(([x, y], i) => (
-          <line key={i} x1={center.x} y1={center.y} x2={x} y2={y} stroke="#e5e7eb" />
-        ))}
-        <polygon points={polygon} fill={toRGBA(color, 0.2)} stroke={color} />
-        {points.map(([x, y], i) => (
-          <g key={`lbl-${i}`}>
-            <circle cx={x} cy={y} r={3} fill={color} />
-            <text x={x} y={y} dx={12} dy={-12} fontSize="12" fill="#374151">{keys[i]}</text>
-          </g>
-        ))}
-      </svg>
+    <div className="p-3 border rounded bg-white h-full flex flex-col">
+      <div className="text-sm font-medium mb-2 text-center">{title}</div>
+      <div className="flex-1 flex items-center justify-center min-h-0">
+        <div className="flex items-center justify-center w-full h-full">
+          <svg width={size} height={size} className="block mx-auto" viewBox={`0 0 ${size} ${size}`}>
+            <circle cx={center.x} cy={center.y} r={radius} fill="none" stroke="#e5e7eb" />
+            <circle cx={center.x} cy={center.y} r={radius * 0.66} fill="none" stroke="#f3f4f6" />
+            <circle cx={center.x} cy={center.y} r={radius * 0.33} fill="none" stroke="#f9fafb" />
+            {points.map(([x, y], i) => (
+              <line key={i} x1={center.x} y1={center.y} x2={x} y2={y} stroke="#e5e7eb" />
+            ))}
+            <polygon points={polygon} fill={toRGBA(color, 0.2)} stroke={color} />
+            {points.map(([x, y], i) => {
+              const words = keys[i].split(' ');
+              return (
+                <g key={`lbl-${i}`}>
+                  <circle cx={x} cy={y} r={3} fill={color} />
+                  {words.length > 1 ? (
+                    <g>
+                      <text x={x} y={y} dx={8} dy={-12} fontSize="10" fill="#374151" textAnchor="start">{words[0]}</text>
+                      <text x={x} y={y} dx={8} dy={0} fontSize="10" fill="#374151" textAnchor="start">{words.slice(1).join(' ')}</text>
+                    </g>
+                  ) : (
+                    <text x={x} y={y} dx={8} dy={-6} fontSize="10" fill="#374151" textAnchor="start">{keys[i]}</text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
     </div>
   );
 };
 
 const SideBySideBars = ({ title, metricName, rows, unit }) => {
-  // rows: [{ label, rawValue, normValue, color }]
+  // Sort rows by normalized value (higher is better for display)
+  const sortedRows = [...rows].sort((a, b) => b.normValue - a.normValue);
+  
   return (
     <div className="p-3 border rounded bg-white">
       <div className="text-sm font-medium mb-2">{title}</div>
+      <div className="text-xs text-gray-500 mb-3">
+        {metricName === 'WER' || metricName === 'FTTB' || metricName === 'RTF' || metricName === 'Total synthesis time' 
+          ? '💡 Lower values are better' 
+          : '💡 Higher values are better'}
+      </div>
       <div className="space-y-2">
-        {rows.map((r) => (
+        {sortedRows.map((r, index) => (
           <div key={r.label}>
             <div className="flex items-center justify-between text-xs text-gray-600">
-              <span className="font-medium">{r.label}</span>
-              <span>{metricName === 'WER' ? `${(r.rawValue * 100).toFixed(1)}%` : unit ? `${r.rawValue.toFixed(2)} ${unit}` : r.rawValue.toFixed(2)}</span>
+              <span className="font-medium flex items-center gap-2">
+                {index === 0 && '🥇'}
+                {index === 1 && '🥈'}
+                {index === 2 && '🥉'}
+                {r.label}
+              </span>
+              <span className="font-semibold">
+                {metricName === 'WER' ? `${(r.rawValue * 100).toFixed(1)}%` : unit ? `${r.rawValue.toFixed(2)} ${unit}` : r.rawValue.toFixed(2)}
+              </span>
             </div>
-            <div className="h-2 bg-gray-100 rounded">
-              <div className="h-2 rounded" style={{ width: `${Math.round(r.normValue * 100)}%`, background: r.color }} />
+            <div className="h-3 bg-gray-100 rounded">
+              <div 
+                className="h-3 rounded transition-all duration-300" 
+                style={{ 
+                  width: `${Math.round(r.normValue * 100)}%`, 
+                  background: r.color,
+                  opacity: 0.8 + (0.2 * (1 - index * 0.2)) // Slight opacity variation for ranking
+                }} 
+              />
             </div>
           </div>
         ))}
@@ -393,7 +467,7 @@ export default function DashboardMock() {
           <Section title="Objective Metrics (Side-by-Side)">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {ttsObjectiveBars.map(({ metric, rows }) => (
-                <SideBySideBars key={metric} title={metric} metricName={metric} rows={rows} unit={metric === 'FTTB' ? 's' : metric === 'Total synthesis time' ? 's' : ''} />
+                <SideBySideBars key={metric} title={metric} metricName={metric} rows={rows} unit={metric === 'FTTB' ? 'ms' : metric === 'Total synthesis time' ? 's' : ''} />
               ))}
             </div>
           </Section>

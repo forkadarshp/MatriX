@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from './components/ui/alert';
 import { Separator } from './components/ui/separator';
 import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker, FileText, Star, User, MessageSquare, Trash2 } from 'lucide-react';
 import './App.css';
+import DashboardMock from './components/DashboardMock.jsx';
 
 function ExportToolbar({ runs }) {
   const API_BASE_URL = import.meta?.env?.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
@@ -1500,7 +1501,15 @@ function App() {
             </Card>
             </>
             ) : (
-              <div className="text-sm text-gray-500">Dashboard Work In Progress.</div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Dashboard</CardTitle>
+                  <CardDescription>Overview of TTS/STT metrics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DashboardMock />
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 

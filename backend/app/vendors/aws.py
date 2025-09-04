@@ -64,13 +64,12 @@ class AWSAdapter(VendorAdapter):
                 logger.error(f"Failed to write audio data to file {audio_path}: {e}")
                 return {"status": "error", "error": f"File write error: {e}", "latency": time.perf_counter() - req_time}
             latency = api_resp_time - req_time
-            ttfb = latency * 0.2
             return {
                 "audio_path": audio_path,
                 "vendor": "aws",
                 "voice": voice,
                 "latency": latency,
-                "ttfb": ttfb,
+                "ttfb": None,
                 "status": "success",
                 "metadata": {"engine": params.get("engine", "neural"), "voice_id": voice},
             }

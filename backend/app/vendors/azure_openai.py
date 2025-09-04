@@ -119,7 +119,7 @@ class AzureOpenAIAdapter(VendorAdapter):
 
             return {
                 "transcript": transcript,
-                "confidence": 1.0,  # Azure OpenAI doesn't provide confidence scores
+                "confidence": None,  # Azure OpenAI doesn't provide confidence scores
                 "vendor": "azure_openai",
                 "latency": latency,
                 "status": "success",
@@ -195,7 +195,6 @@ class AzureOpenAIAdapter(VendorAdapter):
                 await f.write(audio_data)
 
             latency = time.perf_counter() - req_time
-            ttfb = latency * 0.1  # Estimate first byte time
 
             logger.info(f"Azure OpenAI TTS synthesis completed: {len(audio_data)} bytes in {latency:.3f}s")
 
@@ -204,9 +203,9 @@ class AzureOpenAIAdapter(VendorAdapter):
                 "vendor": "azure_openai",
                 "voice": voice,
                 "latency": latency,
-                "ttfb": ttfb,
+                "ttfb": None,
                 "status": "success",
-                "duration": 0.0,  # Could calculate if needed
+                "duration": None,
                 "metadata": {
                     "model": model,
                     "voice": voice,

@@ -88,7 +88,7 @@ class DeepgramAdapter(VendorAdapter):
                 for chunk in audio_chunks:
                     await f.write(chunk)
             latency = api_resp_time - req_time
-            duration = 0.0
+            duration = None
             if container == "wav" and file_size > 44:
                 mono_bps = int(sample_rate) * 2
                 stereo_bps = int(sample_rate) * 2 * 2
@@ -106,7 +106,7 @@ class DeepgramAdapter(VendorAdapter):
                     debug_log(f"Both durations unrealistic, defaulting to stereo: {duration:.3f}s")
                 debug_log(f"Deepgram WAV duration calc: file_size={file_size}, audio_bytes={audio_bytes}, sample_rate={sample_rate}, mono_dur={mono_duration:.3f}s, stereo_dur={stereo_duration:.3f}s, chosen={duration:.3f}s")
             ttfb_str = f"{ttfb:.3f}s" if ttfb is not None else "N/A"
-            logger.info(f"Deepgram TTS API latency: {latency:.3f}s, TTFB: {ttfb_str}, duration: {duration:.3f}s for text length: {len(text)}")
+            logger.info(f"Deepgram TTS API latency: {latency:.3f}s, TTFB: {ttfb_str}, duration: {duration if duration is not None else 'N/A'}s for text length: {len(text)}")
             return {
                 "audio_path": audio_path,
                 "vendor": "deepgram",

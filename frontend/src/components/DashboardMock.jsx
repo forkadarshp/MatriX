@@ -50,8 +50,8 @@ function normalizeObjective(useCase, name, value) {
     return clamp01(1 - (value / 0.1));
   }
   if (name === 'FTTB') {
-    // lower is better; baseline 250-450ms, clip 0..1000ms
-    return clamp01(1 - (value / 1000));
+    // lower is better; FTTB is now in seconds, clip 0..10s
+    return clamp01(1 - (value / 10));
   }
   if (name === 'RTF') {
     // lower is better; target < 1.0; clip 0..2
@@ -74,10 +74,10 @@ function generateMockForVendor(useCase, { vendor, model }) {
   if (useCase === 'tts') {
     if (vendor === 'ElevenLabs') {
       // Bias ElevenLabs to win TTS - best values
-      objective['WER'] = 0.075;  // Lower WER (4.8%)
-      objective['FTTB'] = 0.61;    // Lower FTTB (260ms)
-      objective['RTF'] = 0.21;    // Lower RTF (0.25x)
-      objective['Total synthesis time'] = 0.64; // Lower time (1.2s)
+      objective['WER'] = 0.075;  // Lower WER (7.5%)
+      objective['FTTB'] = 0.61;    // Lower FTTB (0.61s)
+      objective['RTF'] = 0.21;    // Lower RTF (0.21x)
+      objective['Total synthesis time'] = 0.64; // Lower time (0.64s)
     } else if (vendor === 'Deepgram') {
       // Second best for TTS
       objective['WER'] = 0.062;
@@ -87,13 +87,13 @@ function generateMockForVendor(useCase, { vendor, model }) {
     } else if (vendor === 'Vibe Voice') {
       // Third best for TTS
       objective['WER'] = 0.080;
-      objective['FTTB'] = 2.5; // assuming 2.5ms
+      objective['FTTB'] = 2.5; // FTTB 2.5s
       objective['RTF'] = 3.27;
       objective['Total synthesis time'] = 15.10;
     } else {
       // AWS Polly - fourth for TTS
       objective['WER'] = 0.070;
-      objective['FTTB'] = 420;
+      objective['FTTB'] = 4.2; // FTTB 4.2s (converted from 420ms)
       objective['RTF'] = 0.85;
       objective['Total synthesis time'] = 2.8;
     }
@@ -122,34 +122,51 @@ function generateMockForVendor(useCase, { vendor, model }) {
   }
 
   const subjective = {};
-  const subjList = useCase === 'tts' ? TTS_SUBJECTIVE : STT_SUBJECTIVE;
-  subjList.forEach((k) => {
-    if (useCase === 'tts' && vendor === 'ElevenLabs') {
-      // Bias ElevenLabs TTS subjective - best values
-      subjective[k] = 4.8;
-    } else if (useCase === 'tts' && vendor === 'Deepgram') {
-      // Second best TTS subjective
-      subjective[k] = 4.5;
-    } else if (useCase === 'tts' && vendor === 'Vibe Voice') {
-      // Third best TTS subjective
-      subjective[k] = 4.1;
-    } else if (useCase === 'tts' && vendor === 'AWS') {
-      // Fourth best TTS subjective
-      subjective[k] = 3.8;
-    } else if (useCase === 'stt' && vendor === 'Deepgram') {
-      // Bias Deepgram STT subjective - best values
-      subjective[k] = 4.7;
-    } else if (useCase === 'stt' && vendor === 'ElevenLabs') {
-      // Second best STT subjective
-      subjective[k] = 4.3;
-    } else if (useCase === 'stt' && vendor === 'OpenAI') {
-      // Third best STT subjective
-      subjective[k] = 3.9;
-    } else {
-      // OLMoASR - fourth best STT subjective
-      subjective[k] = 3.5;
+  
+  // Hardcoded specific subjective metrics for TTS
+  if (useCase === 'tts') {
+    if (vendor === 'ElevenLabs') {
+      subjective['Pronunciation Accuracy'] = 4.9;
+      subjective['Speech Naturalness'] = 4.8;
+      subjective['Context Awareness'] = 4.7;
+      subjective['Prosody Accuracy'] = 4.6;
+    } else if (vendor === 'Deepgram') {
+      subjective['Pronunciation Accuracy'] = 4.6;
+      subjective['Speech Naturalness'] = 5.0;
+      subjective['Context Awareness'] = 3.0;
+      subjective['Prosody Accuracy'] = 5.0;
+    } else if (vendor === 'Vibe Voice') {
+      subjective['Pronunciation Accuracy'] = 3.4;
+      subjective['Speech Naturalness'] = 4.0;
+      subjective['Context Awareness'] = 4.0;
+      subjective['Prosody Accuracy'] = 3.4;
+    } else if (vendor === 'AWS') {
+      subjective['Pronunciation Accuracy'] = 3.8;
+      subjective['Speech Naturalness'] = 3.7;
+      subjective['Context Awareness'] = 3.9;
+      subjective['Prosody Accuracy'] = 3.6;
     }
-  });
+  } 
+  // Hardcoded specific subjective metrics for STT
+  else if (useCase === 'stt') {
+    if (vendor === 'Deepgram') {
+      subjective['Noise Robustness'] = 4.8;
+      subjective['Accent Coverage'] = 4.7;
+      subjective['Disfluency Handling'] = 4.3;
+    } else if (vendor === 'ElevenLabs') {
+      subjective['Noise Robustness'] = 4.4;
+      subjective['Accent Coverage'] = 4.2;
+      subjective['Disfluency Handling'] = 4.3;
+    } else if (vendor === 'OpenAI') {
+      subjective['Noise Robustness'] = 4.0;
+      subjective['Accent Coverage'] = 3.8;
+      subjective['Disfluency Handling'] = 3.9;
+    } else if (vendor === 'OLMoASR') {
+      subjective['Noise Robustness'] = 3.6;
+      subjective['Accent Coverage'] = 3.4;
+      subjective['Disfluency Handling'] = 3.5;
+    }
+  }
 
   return { vendor, model, objective, subjective };
 }
@@ -345,7 +362,7 @@ const HeatMap = ({ title, vendors, metrics, values, useCase }) => {
 };
 
 const Section = ({ title, children }) => (
-  <div className="space-y-3">
+  <div className="space-y-6">
     <div className="text-base font-semibold text-gray-800">{title}</div>
     {children}
   </div>
@@ -493,10 +510,10 @@ export default function DashboardMock() {
   }, [sttData]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-16">
       {/* TTS Section */}
       <Section title="TTS (Text-to-Speech) Analysis">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-12">
           <Section title="Overall Capability (Radar)">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {ttsRadar.map((r) => (
@@ -506,17 +523,17 @@ export default function DashboardMock() {
           </Section>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-20">
           <Section title="Objective Metrics (Side-by-Side)">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {ttsObjectiveBars.map(({ metric, rows }) => (
-                <SideBySideBars key={metric} title={metric} metricName={metric} rows={rows} unit={metric === 'FTTB' ? 'ms' : metric === 'Total synthesis time' ? 's' : ''} />
+                <SideBySideBars key={metric} title={metric} metricName={metric} rows={rows} unit={metric === 'FTTB' ? 's' : metric === 'Total synthesis time' ? 's' : ''} />
               ))}
             </div>
           </Section>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-20">
           <Section title="Subjective Metrics (Heatmap)">
             <HeatMap
               title="TTS Vendors vs Subjective Metrics"
@@ -528,7 +545,7 @@ export default function DashboardMock() {
           </Section>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-6 mt-20">
           <div className="p-4 border rounded bg-white space-y-2">
             <div className="text-base font-semibold mb-1">TTS • KPI</div>
             <div className="text-sm">🏆 <span className="font-medium">Best Accuracy</span>: {bestAccuracyTTS ? `${bestAccuracyTTS.vendor} • ${bestAccuracyTTS.model} (${(bestAccuracyTTS.wer*100).toFixed(1)}% WER)` : '—'}</div>
@@ -540,8 +557,9 @@ export default function DashboardMock() {
       </Section>
 
       {/* STT Section */}
-      <Section title="STT (Speech-to-Text) Analysis">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="mt-24">
+        <Section title="STT (Speech-to-Text) Analysis">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-12">
           <Section title="Overall Capability (Radar)">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {sttRadar.map((r) => (
@@ -551,7 +569,7 @@ export default function DashboardMock() {
           </Section>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-20">
           <Section title="Objective Metrics (Side-by-Side)">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {sttObjectiveBars.map(({ metric, rows }) => (
@@ -561,7 +579,7 @@ export default function DashboardMock() {
           </Section>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-20">
           <Section title="Subjective Metrics (Heatmap)">
             <HeatMap
               title="STT Vendors vs Subjective Metrics"
@@ -573,7 +591,7 @@ export default function DashboardMock() {
           </Section>
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-6 mt-20">
           <div className="p-4 border rounded bg-white space-y-2">
             <div className="text-base font-semibold mb-1">STT • KPI</div>
             <div className="text-sm">🏆 <span className="font-medium">Best Accuracy</span>: {bestAccuracySTT ? `${bestAccuracySTT.vendor} • ${bestAccuracySTT.model} (${(bestAccuracySTT.wer*100).toFixed(1)}% WER)` : '—'}</div>
@@ -582,7 +600,8 @@ export default function DashboardMock() {
             <div className="text-sm text-gray-700">Final Pick: <span className="font-semibold">{sttBest?.label}</span></div>
           </div>
         </div>
-      </Section>
+        </Section>
+      </div>
     </div>
   );
 }

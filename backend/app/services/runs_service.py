@@ -1,3 +1,4 @@
+import os
 import json
 import uuid
 import asyncio
@@ -153,11 +154,25 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
                 except Exception as e:
                     logger.error(f"Failed to save transcript artifact for {item_id}: {e}")
     else:
-        tts_adapter = VENDOR_ADAPTERS["elevenlabs"]["tts"]
-        el_params = pick_models("elevenlabs", "tts")
-        tts_result = await tts_adapter.synthesize(text_input, **el_params)
-        if tts_result.get("status") == "success":
-            audio_path = tts_result["audio_path"]
+        audio_path = None
+        # Check config for a pre-existing audio file to enable STT-only tests
+        audio_map = (cfg.get("models") or {}).get(vendor, {}).get("audio_map") or cfg.get("audio_map")
+        if audio_map and isinstance(audio_map, dict):
+            audio_path = audio_map.get(text_input)
+
+        if audio_path and not os.path.exists(audio_path):
+            logger.warning(f"Audio path from config for '{text_input}' not found: {audio_path}")
+            audio_path = None
+
+        if not audio_path:
+            # If no pre-existing audio, fall back to TTS->STT flow
+            tts_adapter = VENDOR_ADAPTERS["elevenlabs"]["tts"]
+            el_params = pick_models("elevenlabs", "tts")
+            tts_result = await tts_adapter.synthesize(text_input, **el_params)
+            if tts_result.get("status") == "success":
+                audio_path = tts_result["audio_path"]
+
+        if audio_path:
             stt_adapter = VENDOR_ADAPTERS[vendor]["stt"]
             stt_params = pick_models(vendor, "stt")
             stt_result = await stt_adapter.transcribe(audio_path, **stt_params)

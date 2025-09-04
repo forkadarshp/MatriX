@@ -10,7 +10,7 @@ import { Progress } from './components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Alert, AlertDescription } from './components/ui/alert';
 import { Separator } from './components/ui/separator';
-import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker, FileText, Star, User, MessageSquare } from 'lucide-react';
+import { Play, Pause, Volume2, BarChart3, Activity, Clock, Target, Zap, Mic, Speaker, FileText, Star, User, MessageSquare, Trash2 } from 'lucide-react';
 import './App.css';
 
 function ExportToolbar({ runs }) {
@@ -629,6 +629,21 @@ function App() {
         );
       };
 
+      const handleDeleteItem = async () => {
+        if (!window.confirm('Delete this test case? This cannot be undone.')) return;
+        try {
+          const resp = await fetch(`${API_BASE_URL}/api/run-items/${item.id}`, { method: 'DELETE' });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: 'Delete failed' }));
+            throw new Error(err.detail || 'Delete failed');
+          }
+          if (onRatingUpdate) onRatingUpdate();
+        } catch (e) {
+          console.error('Delete item failed', e);
+          alert(`Failed to delete: ${e.message}`);
+        }
+      };
+
       return (
         <div className="flex items-center space-x-2">
           {hasAudio && (
@@ -664,6 +679,16 @@ function App() {
                 </span>
               )}
             </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleDeleteItem}
+              className="text-red-700 border-red-200 hover:bg-red-50"
+              title="Delete this test case"
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              Delete
+            </Button>
             {showTranscript && (
               <div className="ml-2 max-w-xl text-xs bg-white p-3 rounded border shadow-sm">
                 {getTranscriptDisplay()}
@@ -690,7 +715,8 @@ function App() {
       const [averageRatings, setAverageRatings] = useState({});
 
       const serviceType = classifyService(item);
-      const actualServiceType = serviceType === 'e2e' ? 'tts' : serviceType;
+      // For e2e items, prefer STT metrics (so STT-specific metrics like Noise Handling appear)
+      const actualServiceType = serviceType === 'e2e' ? 'stt' : serviceType;
 
       useEffect(() => {
         if (isOpen && actualServiceType !== 'unknown') {
@@ -745,15 +771,6 @@ function App() {
       };
 
       const handleSubmit = async () => {
-        if (!userName.trim()) {
-          alert('Please enter your name');
-          return;
-        }
-
-        // Check if all metrics have been rated
-        const missingRatings = subjectiveMetrics.filter(metric => !userRatings[metric.id]);
-        // Ratings are optional; proceed even if some metrics are unrated
-
         setLoading(true);
         try {
           const response = await fetch(`${API_BASE_URL}/api/user-ratings`, {
@@ -763,7 +780,7 @@ function App() {
             },
             body: JSON.stringify({
               run_item_id: item.id,
-              user_name: userName.trim(),
+              user_name: (userName || '').trim() || 'Anonymous',
               ratings: userRatings,
               comments: comments
             })
@@ -853,7 +870,7 @@ function App() {
               </div>
 
               <div className="mb-4">
-                <Label htmlFor="userName" className="text-sm font-medium">Your Name *</Label>
+                <Label htmlFor="userName" className="text-sm font-medium">Your Name (optional)</Label>
                 <Input
                   id="userName"
                   type="text"
@@ -915,7 +932,7 @@ function App() {
                 </Button>
                 <Button 
                   onClick={handleSubmit} 
-                  disabled={loading || !userName.trim()}
+                  disabled={loading}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   {loading ? (
@@ -1159,6 +1176,32 @@ function App() {
               <div className="text-sm">
                 <span className="font-medium">{run.items?.length || 0}</span> tests
               </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-red-700 border-red-200 hover:bg-red-50"
+                title="Delete this run"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  (async () => {
+                    if (!window.confirm('Delete this entire run and all its items?')) return;
+                    try {
+                      const resp = await fetch(`${API_BASE_URL}/api/runs/${run.id}`, { method: 'DELETE' });
+                      if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({ detail: 'Delete failed' }));
+                        throw new Error(err.detail || 'Delete failed');
+                      }
+                      await fetchRuns();
+                    } catch (e) {
+                      console.error('Delete run failed', e);
+                      alert(`Failed to delete run: ${e.message}`);
+                    }
+                  })();
+                }}
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Delete Run
+              </Button>
             </div>
           </div>
         </CardHeader>

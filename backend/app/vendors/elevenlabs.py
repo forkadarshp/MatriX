@@ -13,7 +13,7 @@ class ElevenLabsAdapter(VendorAdapter):
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    async def synthesize(self, text: str, voice: str = "21m00Tcm4TlvDq8ikWAM", model_id: str = "eleven_flash_v2_5", **params) -> Dict[str, Any]:
+    async def synthesize(self, text: str, voice: str = "biKKUtquxxZTxOnPw4Tk", model_id: str = "eleven_flash_v2_5", **params) -> Dict[str, Any]:
         req_time = time.perf_counter()
         api_key = (self.api_key or "").strip()
         if not api_key or api_key.lower().startswith("dummy"):

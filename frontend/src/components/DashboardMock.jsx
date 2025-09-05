@@ -86,16 +86,16 @@ function generateMockForVendor(useCase, { vendor, model }) {
       objective['Total synthesis time'] = 3.28;
     } else if (vendor === 'Vibe Voice') {
       // Third best for TTS
-      objective['WER'] = 0.080;
+      objective['WER'] = 0.078;
       objective['FTTB'] = 2.5; // FTTB 2.5s
       objective['RTF'] = 3.27;
       objective['Total synthesis time'] = 15.10;
     } else {
       // AWS Polly - fourth for TTS
-      objective['WER'] = 0.070;
-      objective['FTTB'] = 4.2; // FTTB 4.2s (converted from 420ms)
+      objective['WER'] = 0.047;
+      objective['FTTB'] = 2.8; // FTTB 4.2s (converted from 420ms)
       objective['RTF'] = 0.85;
-      objective['Total synthesis time'] = 2.8;
+      objective['Total synthesis time'] = 3.1;
     }
   } else {
     if (vendor === 'Deepgram') {
@@ -111,8 +111,8 @@ function generateMockForVendor(useCase, { vendor, model }) {
     } else if (vendor === 'OpenAI') {
       // Third best for STT
       objective['WER'] = 0.061;
-      objective['RTF'] = 0.62;
-      objective['Total synthesis time'] = 2.0;
+      objective['RTF'] = 2.41;
+      objective['Total synthesis time'] = 8.51;
     } else {
       // OLMoASR - fourth for STT
       objective['WER'] = 0.088;
@@ -133,13 +133,13 @@ function generateMockForVendor(useCase, { vendor, model }) {
     } else if (vendor === 'Deepgram') {
       subjective['Pronunciation Accuracy'] = 4.6;
       subjective['Speech Naturalness'] = 5.0;
-      subjective['Context Awareness'] = 3.0;
+      subjective['Context Awareness'] = 4.0;
       subjective['Prosody Accuracy'] = 5.0;
     } else if (vendor === 'Vibe Voice') {
-      subjective['Pronunciation Accuracy'] = 3.4;
-      subjective['Speech Naturalness'] = 4.0;
+      subjective['Pronunciation Accuracy'] = 4.0;
+      subjective['Speech Naturalness'] = 5.0;
       subjective['Context Awareness'] = 4.0;
-      subjective['Prosody Accuracy'] = 3.4;
+      subjective['Prosody Accuracy'] = 5.0;
     } else if (vendor === 'AWS') {
       subjective['Pronunciation Accuracy'] = 3.8;
       subjective['Speech Naturalness'] = 3.7;

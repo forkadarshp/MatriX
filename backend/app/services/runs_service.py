@@ -38,7 +38,7 @@ async def process_isolated_mode(item_id: str, vendor: str, text_input: str, conn
     def pick_models(vendor_name: str, svc: str) -> Dict[str, Any]:
         models = (cfg.get("models") or {}).get(vendor_name, {})
         if vendor_name == "elevenlabs" and svc == "tts":
-            return {"model_id": models.get("tts_model") or "eleven_flash_v2_5", "voice": models.get("voice_id") or "biKKUtquxxZTxOnPw4Tk"}
+            return {"model_id": models.get("tts_model") or "eleven_flash_v2_5", "voice": models.get("voice_id") or "Xb7hH8MSUJpSbSDYk0k2"}
         if vendor_name == "elevenlabs" and svc == "stt":
             return {"model_id": models.get("stt_model") or "scribe_v1"}
         if vendor_name == "deepgram" and svc == "stt":
@@ -238,7 +238,7 @@ async def process_chained_mode(item_id: str, vendor: str, text_input: str, conn)
     def pick_models(vendor_name: str, svc: str) -> Dict[str, Any]:
         models = (cfg.get("models") or {}).get(vendor_name, {})
         if vendor_name == "elevenlabs" and svc == "tts":
-            return {"model_id": models.get("tts_model") or "eleven_flash_v2_5", "voice": models.get("voice_id") or "biKKUtquxxZTxOnPw4Tk"}
+            return {"model_id": models.get("tts_model") or "eleven_flash_v2_5", "voice": models.get("voice_id") or "Xb7hH8MSUJpSbSDYk0k2"}
         if vendor_name == "elevenlabs" and svc == "stt":
             return {"model_id": models.get("stt_model") or "scribe_v1"}
         if vendor_name == "deepgram" and svc == "stt":

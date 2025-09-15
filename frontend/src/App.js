@@ -1214,7 +1214,10 @@ function App() {
                 const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
                 if (filters.service !== 'all') {
                   if (filters.service === 'tts' && svc !== 'tts') return false;
-                  if (filters.service === 'stt' && svc !== 'stt') return false;
+                  // For STT filtering, include both pure STT and E2E items
+                  if (filters.service === 'stt' && svc !== 'stt' && svc !== 'e2e') return false;
+                  // For other services, exact match
+                  if (filters.service !== 'tts' && filters.service !== 'stt' && svc !== filters.service) return false;
                 }
                 if (filters.vendor !== 'all' && String(it.vendor) !== String(filters.vendor)) return false;
                 if (filters.model !== 'all') {
@@ -1470,7 +1473,7 @@ function App() {
                           const isTTS = it.audio_path && !it.transcript;
                           const isSTT = it.transcript && !it.audio_path; // rare in our pipeline
                           const isE2E = it.audio_path && it.transcript;
-                          const serviceOk = (filters.service === 'tts' && isTTS) || (filters.service === 'stt' && isSTT) || (filters.service === 'e2e' && isE2E);
+                          const serviceOk = (filters.service === 'tts' && isTTS) || (filters.service === 'stt' && (isSTT || isE2E)) || (filters.service === 'e2e' && isE2E);
                           return vendorOk && serviceOk;
                         })
                       }))
@@ -2303,7 +2306,12 @@ function App() {
                     (runs || []).forEach(run => {
                       (run.items || []).forEach(it => {
                         const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
-                        if (svc === filters.service) {
+                        // For STT filtering, include both pure STT and E2E items
+                        if (filters.service === 'stt' && (svc === 'stt' || svc === 'e2e')) {
+                          s.add(it.vendor);
+                        }
+                        // For other services, exact match
+                        else if (svc === filters.service) {
                           s.add(it.vendor);
                         }
                       });
@@ -2338,7 +2346,12 @@ function App() {
                         // Filter by service if not 'all'
                         if (filters.service !== 'all') {
                           const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
-                          if (svc !== filters.service) return;
+                          // For STT filtering, include both pure STT and E2E items (since E2E includes STT results)
+                          if (filters.service === 'stt' && svc !== 'stt' && svc !== 'e2e') return;
+                          // For TTS filtering, only include pure TTS items
+                          else if (filters.service === 'tts' && svc !== 'tts') return;
+                          // For other services, exact match
+                          else if (filters.service !== 'stt' && filters.service !== 'tts' && svc !== filters.service) return;
                         }
                         
                         // Filter by vendor if not 'all'
@@ -2372,7 +2385,12 @@ function App() {
                         (runs || []).forEach(run => {
                           (run.items || []).forEach(it => {
                             const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
-                            if (svc === value) {
+                            // For STT filtering, include both pure STT and E2E items
+                            if (value === 'stt' && (svc === 'stt' || svc === 'e2e')) {
+                              serviceVendors.add(it.vendor);
+                            }
+                            // For other services, exact match
+                            else if (svc === value) {
                               serviceVendors.add(it.vendor);
                             }
                           });
@@ -2399,7 +2417,10 @@ function App() {
                             // Apply service filter
                             if (filters.service !== 'all') {
                               const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
-                              if (svc !== filters.service) return;
+                              // For STT filtering, include both pure STT and E2E items
+                              if (filters.service === 'stt' && svc !== 'stt' && svc !== 'e2e') return;
+                              // For other services, exact match
+                              else if (filters.service !== 'stt' && svc !== filters.service) return;
                             }
                             
                             // Check if this item matches the new vendor
@@ -2483,7 +2504,10 @@ function App() {
                         const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
                         if (filters.service !== 'all') {
                           if (filters.service === 'tts' && svc !== 'tts') return false;
-                          if (filters.service === 'stt' && svc !== 'stt') return false;
+                          // For STT filtering, include both pure STT and E2E items
+                          if (filters.service === 'stt' && svc !== 'stt' && svc !== 'e2e') return false;
+                          // For other services, exact match
+                          if (filters.service !== 'tts' && filters.service !== 'stt' && svc !== filters.service) return false;
                         }
                         if (filters.vendor !== 'all' && String(it.vendor) !== String(filters.vendor)) return false;
                         if (filters.model !== 'all') {

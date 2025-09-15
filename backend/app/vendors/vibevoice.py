@@ -73,7 +73,7 @@ class VibeVoiceAdapter(VendorAdapter):
         filename = os.path.basename(audio_path)
         match = re.search(r"case_(\d+)", filename)
         if match:
-            case_num = match.group(1)
+            case_num = match.group(1).zfill(3)  # Ensure 3-digit zero-padding
             return self._latency_map.get(case_num)
         return None
 

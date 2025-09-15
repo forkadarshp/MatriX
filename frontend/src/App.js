@@ -1011,7 +1011,7 @@ function App() {
               {item.vendor === 'aws' && <Zap className="h-4 w-4 text-orange-600" />}
               {item.vendor === 'azure_openai' && <MessageSquare className="h-4 w-4 text-blue-600" />}
               <span className="font-medium capitalize">
-                {item.vendor.replace('_', ' ')}
+                {item.vendor === 'aws' ? 'AWS Polly' : item.vendor.replace('_', ' ')}
                 {modelName && (
                   <span className="ml-2 font-medium normal-case">• {modelName}</span>
                 )}
@@ -1313,7 +1313,7 @@ function App() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-white/60 backdrop-blur-sm border border-gray-200">
+          <TabsList className="grid w-full grid-cols-3 bg-white/60 backdrop-blur-sm border border-gray-200">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
               <BarChart3 className="h-4 w-4 mr-2" />
               Dashboard
@@ -1440,7 +1440,7 @@ function App() {
                         <SelectItem value="all">All</SelectItem>
                         <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
                         <SelectItem value="deepgram">Deepgram</SelectItem>
-                        <SelectItem value="aws">AWS</SelectItem>
+                        <SelectItem value="aws">AWS Polly</SelectItem>
                         <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1633,7 +1633,7 @@ function App() {
                         <div className="space-y-2">
                           {quickTestForm.service === 'tts' && (
                             <>
-                              <Label>AWS TTS Model</Label>
+                              <Label>AWS Polly TTS Model</Label>
                               <Select value={quickTestForm.models.aws.tts_model} onValueChange={(v)=>setQuickTestForm({...quickTestForm, models:{...quickTestForm.models, aws: {...quickTestForm.models.aws, tts_model: v}}})}>
                                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -1734,7 +1734,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
-                            <SelectItem value="aws">AWS (TTS)</SelectItem>
+                            <SelectItem value="aws">AWS Polly (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                           </SelectContent>
                         </Select>
@@ -1779,7 +1779,7 @@ function App() {
                               }}
                               className="rounded border-gray-300"
                             />
-                            <span className="text-sm capitalize">{vendor.replace('_', ' ')}</span>
+                            <span className="text-sm capitalize">{vendor === 'aws' ? 'AWS Polly' : vendor.replace('_', ' ')}</span>
                           </label>
                         ))}
                       </div>
@@ -1891,7 +1891,7 @@ function App() {
                             <div className="space-y-2">
                               {batchTestForm.service === 'tts' && (
                                 <>
-                                  <Label>AWS TTS Model</Label>
+                                  <Label>AWS Polly TTS Model</Label>
                                   <Select value={batchTestForm.models.aws.tts_model} onValueChange={(v)=>setBatchTestForm({...batchTestForm, models:{...batchTestForm.models, aws: {...batchTestForm.models.aws, tts_model: v}}})}>
                                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                                     <SelectContent>
@@ -2039,7 +2039,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="elevenlabs">ElevenLabs (TTS)</SelectItem>
                             <SelectItem value="deepgram">Deepgram (TTS)</SelectItem>
-                            <SelectItem value="aws">AWS (TTS)</SelectItem>
+                            <SelectItem value="aws">AWS Polly (TTS)</SelectItem>
                             <SelectItem value="azure_openai">Azure OpenAI (TTS)</SelectItem>
                             <SelectItem value="vibevoice">VibeVoice (pre-synth)</SelectItem>
                           </SelectContent>
@@ -2116,7 +2116,7 @@ function App() {
                               }}
                               className="rounded border-gray-300"
                             />
-                            <span className="text-sm capitalize">{vendor.replace('_', ' ')}</span>
+                            <span className="text-sm capitalize">{vendor === 'aws' ? 'AWS Polly' : vendor.replace('_', ' ')}</span>
                           </label>
                         ))}
                       </div>
@@ -2470,7 +2470,7 @@ function App() {
                           <SelectContent>
                             <SelectItem value="all">All</SelectItem>
                             {availableVendors.map(v => (
-                              <SelectItem key={v} value={v}>{String(v)}</SelectItem>
+                              <SelectItem key={v} value={v}>{v === 'aws' ? 'AWS Polly' : String(v)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

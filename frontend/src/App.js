@@ -2285,6 +2285,7 @@ function App() {
                 </div>
 
                 {(() => {
+                  // Get all available vendors
                   const allVendors = useMemo(() => {
                     const s = new Set();
                     (runs || []).forEach(run => {
@@ -2292,6 +2293,25 @@ function App() {
                     });
                     return Array.from(s);
                   }, [runs]);
+
+                  // Get filtered vendors based on selected service (Use Case)
+                  const availableVendors = useMemo(() => {
+                    if (filters.service === 'all') {
+                      return allVendors;
+                    }
+                    const s = new Set();
+                    (runs || []).forEach(run => {
+                      (run.items || []).forEach(it => {
+                        const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                        if (svc === filters.service) {
+                          s.add(it.vendor);
+                        }
+                      });
+                    });
+                    return Array.from(s);
+                  }, [runs, filters.service]);
+
+                  // Get all available models
                   const allModels = useMemo(() => {
                     const s = new Set();
                     (runs || []).forEach(run => {
@@ -2310,11 +2330,110 @@ function App() {
                     return Array.from(s);
                   }, [runs]);
 
+                  // Get filtered models based on selected service and vendor
+                  const availableModels = useMemo(() => {
+                    const s = new Set();
+                    (runs || []).forEach(run => {
+                      (run.items || []).forEach(it => {
+                        // Filter by service if not 'all'
+                        if (filters.service !== 'all') {
+                          const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                          if (svc !== filters.service) return;
+                        }
+                        
+                        // Filter by vendor if not 'all'
+                        if (filters.vendor !== 'all' && String(it.vendor) !== String(filters.vendor)) {
+                          return;
+                        }
+
+                        try {
+                          const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
+                          const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                          let modelName = null;
+                          if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
+                          else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
+                          else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
+                          if (modelName) s.add(modelName);
+                        } catch (e) {}
+                      });
+                    });
+                    return Array.from(s);
+                  }, [runs, filters.service, filters.vendor]);
+
+                  // Helper function to handle filter changes with cascade reset
+                  const handleFilterChange = (filterType, value) => {
+                    if (filterType === 'service') {
+                      // When Use Case changes, reset vendor and model if they're no longer valid
+                      const newFilters = { ...filters, service: value };
+                      
+                      // Reset vendor if current vendor is not available for the new service
+                      if (value !== 'all') {
+                        const serviceVendors = new Set();
+                        (runs || []).forEach(run => {
+                          (run.items || []).forEach(it => {
+                            const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                            if (svc === value) {
+                              serviceVendors.add(it.vendor);
+                            }
+                          });
+                        });
+                        
+                        if (filters.vendor !== 'all' && !serviceVendors.has(filters.vendor)) {
+                          newFilters.vendor = 'all';
+                        }
+                      }
+                      
+                      // Always reset model when service changes
+                      newFilters.model = 'all';
+                      setFilters(newFilters);
+                      
+                    } else if (filterType === 'vendor') {
+                      // When Vendor changes, reset model if it's no longer valid
+                      const newFilters = { ...filters, vendor: value };
+                      
+                      // Reset model if current model is not available for the new vendor
+                      if (value !== 'all' && filters.model !== 'all') {
+                        const vendorModels = new Set();
+                        (runs || []).forEach(run => {
+                          (run.items || []).forEach(it => {
+                            // Apply service filter
+                            if (filters.service !== 'all') {
+                              const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                              if (svc !== filters.service) return;
+                            }
+                            
+                            // Check if this item matches the new vendor
+                            if (String(it.vendor) === String(value)) {
+                              try {
+                                const meta = typeof it.metrics_json === 'string' ? JSON.parse(it.metrics_json || '{}') : (it.metrics_json || {});
+                                const svc = (it.transcript && !it.audio_path) ? 'stt' : (it.audio_path && !it.transcript) ? 'tts' : (it.audio_path && it.transcript) ? 'e2e' : 'unknown';
+                                let modelName = null;
+                                if (svc === 'tts') modelName = meta.tts_model || meta.model || null;
+                                else if (svc === 'stt') modelName = meta.stt_model || meta.model || null;
+                                else if (svc === 'e2e') modelName = meta.tts_model || meta.stt_model || meta.model || null;
+                                if (modelName) vendorModels.add(modelName);
+                              } catch (e) {}
+                            }
+                          });
+                        });
+                        
+                        if (!vendorModels.has(filters.model)) {
+                          newFilters.model = 'all';
+                        }
+                      }
+                      
+                      setFilters(newFilters);
+                    } else {
+                      // For model changes, no cascade needed
+                      setFilters({ ...filters, [filterType]: value });
+                    }
+                  };
+
                   return (
                     <div className="flex flex-wrap items-end gap-3 mb-4">
                       <div>
                         <Label className="text-xs">Use Case</Label>
-                        <Select value={filters.service} onValueChange={(v) => setFilters({ ...filters, service: v })}>
+                        <Select value={filters.service} onValueChange={(v) => handleFilterChange('service', v)}>
                           <SelectTrigger className="mt-1 w-[160px]"><SelectValue placeholder="All" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All</SelectItem>
@@ -2325,11 +2444,11 @@ function App() {
                       </div>
                       <div>
                         <Label className="text-xs">Vendor</Label>
-                        <Select value={filters.vendor} onValueChange={(v) => setFilters({ ...filters, vendor: v })}>
+                        <Select value={filters.vendor} onValueChange={(v) => handleFilterChange('vendor', v)}>
                           <SelectTrigger className="mt-1 w-[180px]"><SelectValue placeholder="All" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All</SelectItem>
-                            {allVendors.map(v => (
+                            {availableVendors.map(v => (
                               <SelectItem key={v} value={v}>{String(v)}</SelectItem>
                             ))}
                           </SelectContent>
@@ -2337,11 +2456,11 @@ function App() {
                       </div>
                       <div>
                         <Label className="text-xs">Model</Label>
-                        <Select value={filters.model} onValueChange={(v) => setFilters({ ...filters, model: v })}>
+                        <Select value={filters.model} onValueChange={(v) => handleFilterChange('model', v)}>
                           <SelectTrigger className="mt-1 w-[220px]"><SelectValue placeholder="All" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All</SelectItem>
-                            {allModels.map(m => (
+                            {availableModels.map(m => (
                               <SelectItem key={m} value={m}>{String(m)}</SelectItem>
                             ))}
                           </SelectContent>

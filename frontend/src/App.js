@@ -78,7 +78,7 @@ function App() {
     mode: 'isolated',
     service: 'tts',
     models: {
-      elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: 'biKKUtquxxZTxOnPw4Tk' },
+      elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: 'cgSgspJ2msm6clMCkdW9' },
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' },
@@ -94,7 +94,7 @@ function App() {
     batchScriptInput: '',
     batchScriptFormat: 'txt',
     models: {
-      elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: 'biKKUtquxxZTxOnPw4Tk' },
+      elevenlabs: { tts_model: 'eleven_flash_v2_5', stt_model: 'scribe_v1', voice_id: 'cgSgspJ2msm6clMCkdW9' },
       deepgram: { tts_model: 'aura-2-helena-en', stt_model: 'nova-3' },
       aws: { tts_model: 'polly', voice_id: 'Joanna', engine: 'neural' },
       azure_openai: { tts_model: 'tts-1', stt_model: 'whisper-1', voice: 'alloy' },

@@ -1,120 +1,106 @@
-# MetriX - TTS/STT Benchmarking Dashboard
+# pipecat-observability-plugin
 
-A comprehensive benchmarking dashboard for Text-to-Speech (TTS) and Speech-to-Text (STT) services, featuring multiple vendor integrations and performance metrics.
+Drop-in pipeline observer for [pipecat](https://github.com/pipecat-ai/pipecat) projects. Provides color-coded, aligned log output with decoded protobuf content via loguru.
 
-## Features
+## What it does
 
-- **Multi-Vendor Support**: ElevenLabs, Deepgram, AWS, Azure OpenAI
-- **Performance Metrics**: WER, RTF, Latency, TTFB, Audio Duration
-- **Test Modes**: Isolated (TTS/STT) and Chained (TTS→STT)
-- **Batch Testing**: Support for multiple scripts and formats
-- **Real-time Dashboard**: Live statistics and insights
-- **Export Capabilities**: CSV and PDF export options
-- **User Ratings**: Subjective quality assessment system
+- Observes every frame flowing through a pipecat pipeline
+- Logs direction (`>>` downstream, `<<` upstream, `--` control) with loguru ANSI colors
+- Decodes protobuf-serialized frames into readable dicts (text, transcription, audio stats, JSON messages)
+- Tracks per-frame-type counts, latency stats, and protobuf byte totals
+- Runs serialization/decode in background `asyncio` tasks to avoid blocking audio
 
-## Project Structure
+## Files
 
 ```
-MetriX/
-├── backend/           # FastAPI server
-│   ├── app/          # Application modules
-│   ├── server.py     # Main server entry point
-│   └── requirements.txt
-├── frontend/         # React application
-│   ├── src/          # Source code
-│   ├── package.json  # Dependencies
-│   └── public/       # Static assets
-└── data/             # Database and storage
+pipecat_observability_plugin/
+    __init__.py                 # Public API
+    observability_config.py     # ObservabilityConfig dataclass
+    protobuf_decoder.py         # decode_protobuf() + ProtobufMessageLog
+    pipeline_observer.py        # PipelineObserver (BaseObserver subclass)
 ```
 
-## Quick Start
+## Requirements
 
-### Backend Setup
+- `pipecat-ai` (tested with 0.0.101)
+- `loguru`
 
-1. **Create Python Virtual Environment**
-   ```bash
-   cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+## Setup
 
-2. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+1. Copy the `pipecat_observability_plugin/` folder into your project root (next to your `bot.py` or equivalent).
 
-3. **Run the Server**
-   ```bash
-   python server.py
-   ```
-   
-   The server will start on `http://localhost:8001`
+2. Install dependencies if not already present:
 
-### Frontend Setup
-
-1. **Install pnpm** (if not already installed)
-   ```bash
-   npm install -g pnpm
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   cd frontend
-   pnpm install
-   ```
-
-3. **Start Development Server**
-   ```bash
-   pnpm start
-   ```
-   
-   The frontend will open in your browser at `http://localhost:3000`
-
-## Usage
-
-### Dashboard
-- View real-time statistics and performance metrics
-- Monitor vendor usage and service mix
-- Track recent test runs and their status
-
-### Quick Test
-- Test single phrases across multiple vendors
-- Choose between isolated TTS/STT or chained mode
-- Configure vendor-specific models and settings
-
-### Batch Test
-- Run tests using predefined script collections
-- Paste custom batch scripts in TXT, CSV, or JSONL format
-- Execute comprehensive performance evaluations
-
-### Results
-- Detailed analysis of test runs
-- Audio playback and transcript viewing
-- Export results in multiple formats
-- User rating system for quality assessment
-
-## API Endpoints
-
-- `GET /api/dashboard/stats` - Dashboard statistics
-- `GET /api/dashboard/insights` - Performance insights
-- `POST /api/runs/quick` - Quick test execution
-- `POST /api/runs` - Batch test execution
-- `GET /api/runs` - Test run results
-- `GET /api/scripts` - Available test scripts
-- `POST /api/export` - Export results
-
-## Environment Variables
-
-Create `.env` files in both `backend/` and `frontend/` directories:
-
-**Backend (.env)**
-```env
-CORS_ORIGINS=*
-DATABASE_URL=sqlite:///./data/benchmark.db
+```bash
+pip install pipecat-ai loguru
+# or with uv:
+uv add pipecat-ai loguru
 ```
 
-**Frontend (.env)**
-```env
-REACT_APP_BACKEND_URL=http://localhost:8001
+3. Import and attach to your pipeline task:
+
+```python
+from pipecat_observability_plugin import PipelineObserver, ObservabilityConfig
+
+config = ObservabilityConfig(
+    enabled=True,
+    enable_binary_logging=True,
+    enable_audio_capture=False,   # True = log every audio frame (high volume)
+    enable_text_capture=True,
+    enable_timing_metrics=True,
+    truncate_text_at=80,
+)
+observer = PipelineObserver(config=config)
+
+task = PipelineTask(
+    pipeline,
+    params=PipelineParams(allow_interruptions=True, enable_metrics=True),
+    observers=[RTVIObserver(rtvi), observer],  # add observer here
+)
 ```
 
+4. Make sure loguru is configured at DEBUG level (the observer logs at `debug`; protobuf decode detail at `trace`):
+
+```python
+import sys
+from loguru import logger
+
+logger.remove(0)
+logger.add(sys.stderr, level="DEBUG")
+```
+
+## Log output
+
+```
+   3.42s  >>  [STT      ] TranscriptionFrame           DG-STT -> UserAggr      12.3ms
+                          "Hello how are you"
+   3.55s  <<  [LLM      ] LLMTextFrame                 Agent  -> DG-TTS         8.1ms
+                          "I'm doing well, thanks"
+   4.01s  >>  [AUDIO-IN ] InputAudioRawFrame            WS-In  -> DG-STT       [3.2KB @ 16000Hz]
+   4.02s  --  [START    ] StartFrame                    Task:Src -> RTVI
+```
+
+- `>>` green = downstream
+- `<<` blue = upstream
+- `--` dim = control/other
+
+## Configuration reference
+
+| Field                  | Type   | Default | Description                                |
+|------------------------|--------|---------|--------------------------------------------|
+| `enabled`              | `bool` | `True`  | Master on/off switch                       |
+| `enable_binary_logging`| `bool` | `True`  | Background protobuf serialize + decode     |
+| `enable_audio_capture` | `bool` | `False` | Log audio frames (high volume when on)     |
+| `enable_text_capture`  | `bool` | `True`  | Log text/transcription/LLM frames          |
+| `enable_timing_metrics`| `bool` | `True`  | Track inter-frame latency                  |
+| `truncate_text_at`     | `int`  | `80`    | Max chars before truncating text content   |
+
+## API
+
+```python
+observer.get_frame_counts()   # -> dict[str, int]
+observer.get_latency_stats()  # -> dict[str, {count, min_ms, max_ms, avg_ms}]
+observer.get_summary()        # -> {frame_counts, latency_stats, protobuf_stats}
+observer.print_summary()      # logs a formatted summary via loguru
+observer.reset()              # clears all counters and cancels pending tasks
+```
